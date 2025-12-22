@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam 额外地区价格显示
 // @namespace    https://github.com/linyaocrush/My-Tampermonkey-script
-// @version      0.2.3
+// @version      0.2.4
 // @description  商店价格旁追加目标地区实际价格；购物车页显示“目标地区预计付款”，不可购买项提示并从合计剔除（更强鲁棒性）
 // @match        https://store.steampowered.com/*
 // @run-at       document-idle
@@ -13,7 +13,8 @@
 // @license MIT
 // ==/UserScript==
 
-(function () {
+
+    (function () {
   'use strict';
 
   const STORAGE_KEY_REGION_ID = 'sapx_target_region_id_v1';
@@ -79,7 +80,7 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .sapx-extra-price{margin-left:6px;font-size:.85em;opacity:.9;white-space:nowrap}
+      .sapx-extra-price{margin-left:6px;font-size:.85em;opacity:.9;white-space:nowrap;pointer-events:none}
       strike .sapx-extra-price,.discount_original_price .sapx-extra-price{opacity:.75;font-size:.82em}
       #sapx-cart-summary{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);color:#c6d4df;font-size:12px;line-height:1.4}
       #sapx-cart-summary .sapx-row{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
@@ -87,10 +88,10 @@
       #sapx-cart-summary .sapx-value{font-weight:700;white-space:nowrap}
       #sapx-cart-summary .sapx-sub{margin-top:4px;opacity:.85}
       #sapx-cart-summary .sapx-warn{margin-top:6px;color:#ffcc6a;opacity:.95}
-      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices{display:flex !important;flex-direction:column !important;gap:4px}
+      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices{position:relative !important;z-index:5 !important}
       .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices>.discount_original_price,
-      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices>.discount_final_price{display:inline-flex !important;align-items:baseline;gap:8px;white-space:nowrap}
-      .game_purchase_action_bg .discount_prices .sapx-price-label{font-size:12px;opacity:.85;min-width:2.6em}
+      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices>.discount_final_price{position:relative !important;z-index:6 !important;display:flex !important;align-items:baseline;gap:8px;white-space:nowrap}
+      .game_purchase_action_bg .discount_prices .sapx-price-label{font-size:12px;opacity:.85;min-width:2.6em;flex:0 0 auto;pointer-events:none}
       .game_purchase_action_bg .discount_prices .sapx-extra-price{margin-left:0 !important;flex:0 0 auto;font-size:.85em;opacity:.9}
       .game_purchase_action_bg .discount_prices>.discount_original_price .sapx-extra-price{opacity:.75;font-size:.82em}
     `;
@@ -131,7 +132,6 @@
   }
 
   const requestQueue = new RequestQueue(4);
-
   const currencyDigitsCache = new Map();
 
   function getCurrencyFractionDigits(currency) {
