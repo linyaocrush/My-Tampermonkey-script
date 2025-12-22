@@ -10,6 +10,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
 // @connect      store.steampowered.com
+// @license MIT
 // ==/UserScript==
 
 (function () {
