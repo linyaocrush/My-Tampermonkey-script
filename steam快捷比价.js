@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Steam 额外地区价格显示（含购物车预计付款·修复版）
+// @name         Steam 额外地区价格显示
 // @namespace    https://github.com/linyaocrush/My-Tampermonkey-script
 // @version      0.2.2
 // @description  商店价格旁追加目标地区实际价格；购物车页显示“目标地区预计付款”，不可购买项提示并从合计剔除（更强鲁棒性）
