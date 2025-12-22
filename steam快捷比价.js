@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Steam 额外地区价格显示
 // @namespace    https://github.com/linyaocrush/My-Tampermonkey-script
-// @version      0.2.9
-// @description  商店价格旁追加目标地区实际价格；修复详情页购买框重叠问题；更强鲁棒性
+// @version      0.3.0
+// @description  商店与购物车价格追加；购物车页显示“目标地区预计付款”，统计并剔除区域不可购买项
 // @match        https://store.steampowered.com/*
 // @run-at       document-idle
 // @grant        GM_getValue
@@ -81,9 +81,11 @@
     style.textContent = `
       .sapx-extra-price{margin-left:6px;font-size:0.9em;opacity:1;white-space:nowrap;pointer-events:none;color:#67c1f5;display:inline-block;font-weight:normal}
       strike .sapx-extra-price,.discount_original_price .sapx-extra-price, .StoreOriginalPrice .sapx-extra-price{opacity:0.65;font-size:0.85em;color:#acb2b8;text-decoration:line-through}
-      #sapx-cart-summary{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);color:#c6d4df;font-size:12px;line-height:1.4}
-      #sapx-cart-summary .sapx-row{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-      #sapx-cart-summary .sapx-value{font-weight:700;white-space:nowrap;color:#67c1f5}
+      #sapx-cart-summary{margin-top:8px;margin-bottom:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.1);color:#c6d4df;font-size:12px;line-height:1.4}
+      #sapx-cart-summary .sapx-row{display:flex;justify-content:space-between;gap:8px;align-items:center}
+      #sapx-cart-summary .sapx-label{font-size:11px;opacity:0.8;color:#acb2b8}
+      #sapx-cart-summary .sapx-value{font-weight:700;white-space:nowrap;color:#67c1f5;font-size:14px}
+      #sapx-cart-summary .sapx-warn{margin-top:4px;color:#e46767;font-size:10px;opacity:0.9}
       .game_purchase_action_bg{height:auto!important;background:none!important}
       .game_purchase_action_bg .discount_block.game_purchase_discount{height:auto!important;min-height:unset!important;padding:8px 0 10px 0!important;display:flex!important;align-items:center!important;overflow:visible!important;background:none!important}
       .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:flex-start!important;background:none!important;padding:0 12px!important;position:relative!important;z-index:10!important;gap:2px!important}
@@ -320,22 +322,42 @@
   async function updateCartSummary() {
     if (!isCartPage()) return;
     const region = getTargetRegion();
-    const rows = document.querySelectorAll('.cart_item, .cart_item_row, .Panel.Focusable ._3-o3G9jt3lqcvbRXt8epsn');
+    const items = document.querySelectorAll('._3ypRUtQoOfOrCsyHlzfGm4 > div.Panel.Focusable');
+    if (!items.length) return;
+
     let sumMinor = 0;
-    for (const row of rows) {
+    let totalItemsCount = items.length;
+    let missingCount = 0;
+
+    for (const row of items) {
       const item = inferItemFromScope(row);
       if (!item) continue;
       const price = await getPriceForItem(item, region);
-      if (price?.ok && Number.isFinite(price.final)) {
+      if (price?.ok && price.final !== null && Number.isFinite(price.final)) {
         sumMinor += price.final;
+      } else {
+        missingCount++;
       }
     }
-    const container = document.querySelector('.cart_totals_area, #cart_total, ._2WLaY5TxjBGVyuWe_6KS3N');
-    if (!container) return;
+
+    const cartSummaryRow = document.querySelector('._2DjadWLFH3keW9rGWZKxSk._1G8JdfmCwhonn-pZk-tfwP');
+    if (!cartSummaryRow) return;
+
     let box = document.getElementById(CART_SUMMARY_ID);
-    if (!box) { box = document.createElement('div'); box.id = CART_SUMMARY_ID; container.parentElement.appendChild(box); }
+    if (!box) {
+      box = document.createElement('div');
+      box.id = CART_SUMMARY_ID;
+      cartSummaryRow.appendChild(box);
+    }
+
     const totalText = formatMinorToCurrency(sumMinor, region.currency);
-    box.innerHTML = `<div class="sapx-row"><div class="sapx-label">目标地区预计付款 (${region.short})：</div><div class="sapx-value">${totalText}</div></div>`;
+    const label = getShowRegionCode() ? `目标地区预计付款 (${region.short})` : '目标地区预计付款';
+    
+    let html = `<div class="sapx-row"><div class="sapx-label">${label}：</div><div class="sapx-value">${totalText}</div></div>`;
+    if (missingCount > 0) {
+      html += `<div class="sapx-warn">注意：有 ${missingCount} 项商品无法在目标地区购买（已从合计剔除）</div>`;
+    }
+    box.innerHTML = html;
   }
 
   const PRICE_SELECTORS = [
@@ -354,7 +376,7 @@
       scanTimer = null;
       document.querySelectorAll(PRICE_SELECTORS).forEach(el => enhancePriceElement(el));
       if (isCartPage()) updateCartSummary();
-    }, 400);
+    }, 450);
   }
 
   function startObserver() {
