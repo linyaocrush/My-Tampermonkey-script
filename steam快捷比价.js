@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam 额外地区价格显示
 // @namespace    https://github.com/linyaocrush/My-Tampermonkey-script
-// @version      0.2.7
+// @version      0.2.8
 // @description  商店价格旁追加目标地区实际价格；修复详情页购买框重叠问题；更强鲁棒性
 // @match        https://store.steampowered.com/*
 // @run-at       document-idle
@@ -79,15 +79,16 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .sapx-extra-price{margin-left:6px;font-size:.85em;opacity:.9;white-space:nowrap;pointer-events:none;color:#a3d200}
+      .sapx-extra-price{margin-left:6px;font-size:.85em;opacity:.9;white-space:nowrap;pointer-events:none;color:#a3d200;display:inline-block}
       strike .sapx-extra-price,.discount_original_price .sapx-extra-price, .StoreOriginalPrice .sapx-extra-price{opacity:.7;font-size:.85em;color:inherit}
       #sapx-cart-summary{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);color:#c6d4df;font-size:12px;line-height:1.4}
       #sapx-cart-summary .sapx-row{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
       #sapx-cart-summary .sapx-value{font-weight:700;white-space:nowrap}
-      .game_purchase_action_bg .discount_block.game_purchase_discount{height:auto!important;min-height:50px!important;padding-bottom:12px!important;display:flex!important;align-items:center!important;overflow:visible!important}
-      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:flex-start!important;background:none!important;padding:4px 8px!important;position:relative!important;z-index:5!important}
-      .game_purchase_action_bg .discount_prices > div{display:flex!important;align-items:baseline!important;gap:8px!important;line-height:1.4!important;height:auto!important;position:relative!important;z-index:6!important;white-space:nowrap!important}
-      .game_purchase_action_bg .discount_prices .sapx-price-label{font-size:12px;opacity:.65;min-width:3.5em;display:inline-block;flex:0 0 auto}
+      .game_purchase_action_bg{height:auto!important}
+      .game_purchase_action_bg .discount_block.game_purchase_discount{height:auto!important;min-height:unset!important;padding-bottom:12px!important;display:flex!important;align-items:center!important;overflow:visible!important}
+      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:flex-start!important;background:none!important;padding:4px 8px!important;position:relative!important;z-index:10!important}
+      .game_purchase_action_bg .discount_prices > div{display:flex!important;align-items:baseline!important;gap:8px!important;line-height:1.5!important;height:auto!important;position:relative!important;z-index:11!important;white-space:nowrap!important}
+      .game_purchase_action_bg .discount_prices .sapx-price-label{font-size:12px;opacity:.6;min-width:3.5em;display:inline-block;flex:0 0 auto}
       .game_purchase_action_bg .discount_prices .sapx-extra-price{margin-left:0!important;flex:0 0 auto}
       .Panel.Focusable .sapx-extra-price{display:inline-block;margin-top:2px}
     `;
@@ -285,7 +286,7 @@
   async function enhancePriceElement(priceEl) {
     if (!priceEl || priceEl.nodeType !== 1 || priceEl.classList.contains(EXTRA_CLASS)) return;
     const txt = priceEl.textContent.trim();
-    if (!txt || /^-\d+%$/.test(txt) || txt.length > 30) return;
+    if (!txt || /^-\d+%$/.test(txt) || txt.length > 35) return;
     if (priceEl.offsetWidth === 0 && !priceEl.closest('.game_area_purchase_game_dropdown_menu')) return;
 
     const region = getTargetRegion();
@@ -320,14 +321,13 @@
     if (!isCartPage()) return;
     const region = getTargetRegion();
     const rows = document.querySelectorAll('.cart_item, .cart_item_row, .Panel.Focusable ._3-o3G9jt3lqcvbRXt8epsn');
-    let sumMinor = 0, okCount = 0;
+    let sumMinor = 0;
     for (const row of rows) {
       const item = inferItemFromScope(row);
       if (!item) continue;
       const price = await getPriceForItem(item, region);
       if (price?.ok && Number.isFinite(price.final)) {
         sumMinor += price.final;
-        okCount++;
       }
     }
     const container = document.querySelector('.cart_totals_area, #cart_total, ._2WLaY5TxjBGVyuWe_6KS3N');
@@ -354,7 +354,7 @@
       scanTimer = null;
       document.querySelectorAll(PRICE_SELECTORS).forEach(el => enhancePriceElement(el));
       if (isCartPage()) updateCartSummary();
-    }, 400);
+    }, 450);
   }
 
   function startObserver() {
