@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam 额外地区价格显示
 // @namespace    https://github.com/linyaocrush/My-Tampermonkey-script
-// @version      0.2.8
+// @version      0.2.9
 // @description  商店价格旁追加目标地区实际价格；修复详情页购买框重叠问题；更强鲁棒性
 // @match        https://store.steampowered.com/*
 // @run-at       document-idle
@@ -50,7 +50,7 @@
     { id: 'COP', short: 'CO', label: 'Colombian Peso', currency: 'COP', ccCandidates: ['CO'] },
     { id: 'AUD', short: 'AU', label: 'Australian Dollar', currency: 'AUD', ccCandidates: ['AU'] },
     { id: 'USD', short: 'US', label: 'U.S. Dollar', currency: 'USD', ccCandidates: ['US'] },
-    { id: 'CAD', short: 'CA', label: 'Canadian Dollar', currency: 'CAD', ccCandidates: ['CA'] },
+    { id: 'CAD', short: 'CA', label: 'Canadian Dollar', currency: 'CAD', ccCandidates: ['CAD'] },
     { id: 'SGD', short: 'SG', label: 'Singapore Dollar', currency: 'SGD', ccCandidates: ['SG'] },
     { id: 'SAR', short: 'SA', label: 'Saudi Riyal', currency: 'SAR', ccCandidates: ['SA'] },
     { id: 'QAR', short: 'QA', label: 'Qatari Riyal', currency: 'QAR', ccCandidates: ['QA'] },
@@ -79,17 +79,17 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .sapx-extra-price{margin-left:6px;font-size:.85em;opacity:.9;white-space:nowrap;pointer-events:none;color:#a3d200;display:inline-block}
-      strike .sapx-extra-price,.discount_original_price .sapx-extra-price, .StoreOriginalPrice .sapx-extra-price{opacity:.7;font-size:.85em;color:inherit}
+      .sapx-extra-price{margin-left:6px;font-size:0.9em;opacity:1;white-space:nowrap;pointer-events:none;color:#67c1f5;display:inline-block;font-weight:normal}
+      strike .sapx-extra-price,.discount_original_price .sapx-extra-price, .StoreOriginalPrice .sapx-extra-price{opacity:0.65;font-size:0.85em;color:#acb2b8;text-decoration:line-through}
       #sapx-cart-summary{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);color:#c6d4df;font-size:12px;line-height:1.4}
       #sapx-cart-summary .sapx-row{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-      #sapx-cart-summary .sapx-value{font-weight:700;white-space:nowrap}
-      .game_purchase_action_bg{height:auto!important}
-      .game_purchase_action_bg .discount_block.game_purchase_discount{height:auto!important;min-height:unset!important;padding-bottom:12px!important;display:flex!important;align-items:center!important;overflow:visible!important}
-      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:flex-start!important;background:none!important;padding:4px 8px!important;position:relative!important;z-index:10!important}
-      .game_purchase_action_bg .discount_prices > div{display:flex!important;align-items:baseline!important;gap:8px!important;line-height:1.5!important;height:auto!important;position:relative!important;z-index:11!important;white-space:nowrap!important}
-      .game_purchase_action_bg .discount_prices .sapx-price-label{font-size:12px;opacity:.6;min-width:3.5em;display:inline-block;flex:0 0 auto}
-      .game_purchase_action_bg .discount_prices .sapx-extra-price{margin-left:0!important;flex:0 0 auto}
+      #sapx-cart-summary .sapx-value{font-weight:700;white-space:nowrap;color:#67c1f5}
+      .game_purchase_action_bg{height:auto!important;background:none!important}
+      .game_purchase_action_bg .discount_block.game_purchase_discount{height:auto!important;min-height:unset!important;padding:8px 0 10px 0!important;display:flex!important;align-items:center!important;overflow:visible!important;background:none!important}
+      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:flex-start!important;background:none!important;padding:0 12px!important;position:relative!important;z-index:10!important;gap:2px!important}
+      .game_purchase_action_bg .discount_prices > div{display:flex!important;align-items:baseline!important;gap:6px!important;line-height:1.3!important;height:auto!important;position:relative!important;z-index:11!important;white-space:nowrap!important}
+      .game_purchase_action_bg .discount_prices .sapx-price-label{font-size:11px;color:#acb2b8;min-width:2.8em;display:inline-block;flex:0 0 auto;text-transform:uppercase;letter-spacing:0.5px}
+      .game_purchase_action_bg .discount_prices .sapx-extra-price{margin-left:4px!important;flex:0 0 auto}
       .Panel.Focusable .sapx-extra-price{display:inline-block;margin-top:2px}
     `;
     document.head.appendChild(style);
@@ -286,7 +286,7 @@
   async function enhancePriceElement(priceEl) {
     if (!priceEl || priceEl.nodeType !== 1 || priceEl.classList.contains(EXTRA_CLASS)) return;
     const txt = priceEl.textContent.trim();
-    if (!txt || /^-\d+%$/.test(txt) || txt.length > 35) return;
+    if (!txt || /^-\d+%$/.test(txt) || txt.length > 40) return;
     if (priceEl.offsetWidth === 0 && !priceEl.closest('.game_area_purchase_game_dropdown_menu')) return;
 
     const region = getTargetRegion();
@@ -354,7 +354,7 @@
       scanTimer = null;
       document.querySelectorAll(PRICE_SELECTORS).forEach(el => enhancePriceElement(el));
       if (isCartPage()) updateCartSummary();
-    }, 450);
+    }, 400);
   }
 
   function startObserver() {
