@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam 额外地区价格显示
 // @namespace    https://github.com/linyaocrush/My-Tampermonkey-script
-// @version      0.2.4
+// @version      0.2.5
 // @description  商店价格旁追加目标地区实际价格；购物车页显示“目标地区预计付款”，不可购买项提示并从合计剔除（更强鲁棒性）
 // @match        https://store.steampowered.com/*
 // @run-at       document-idle
@@ -94,6 +94,8 @@
       .game_purchase_action_bg .discount_prices .sapx-price-label{font-size:12px;opacity:.85;min-width:2.6em;flex:0 0 auto;pointer-events:none}
       .game_purchase_action_bg .discount_prices .sapx-extra-price{margin-left:0 !important;flex:0 0 auto;font-size:.85em;opacity:.9}
       .game_purchase_action_bg .discount_prices>.discount_original_price .sapx-extra-price{opacity:.75;font-size:.82em}
+      .game_purchase_action_bg .discount_block.game_purchase_discount{min-height:52px!important;padding-bottom:10px!important;overflow:visible!important}
+      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices{padding-bottom:6px!important}
     `;
     document.head.appendChild(style);
   }
