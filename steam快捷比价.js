@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Steam 额外地区价格显示 (修复版)
+// @name         Steam 额外地区价格显示
 // @namespace    https://github.com/linyaocrush/My-Tampermonkey-script
 // @version      0.2.6
 // @description  商店价格旁追加目标地区实际价格；修复详情页购买框重叠问题；更强鲁棒性
