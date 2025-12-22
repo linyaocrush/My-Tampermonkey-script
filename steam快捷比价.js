@@ -79,63 +79,45 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      .sapx-extra-price { margin-left: 6px; font-size: 0.85em; opacity: 0.9; white-space: nowrap; pointer-events: none; color: #a3d200; }
-      strike .sapx-extra-price, .discount_original_price .sapx-extra-price { opacity: 0.7; font-size: 0.85em; color: inherit; text-decoration: line-through; }
-      
-      #sapx-cart-summary { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.08); color: #c6d4df; font-size: 12px; line-height: 1.4; }
-      #sapx-cart-summary .sapx-row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-      #sapx-cart-summary .sapx-value { font-weight: 700; white-space: nowrap; }
-
-      /* 详情页购买框修复 */
-      .game_purchase_action_bg .discount_block.game_purchase_discount { 
-          height: auto !important; 
-          min-height: 40px !important; 
-          padding-bottom: 8px !important; 
-          display: flex !important; 
-          align-items: center !important;
-      }
-      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices { 
-          display: flex !important; 
-          flex-direction: column !important; 
-          justify-content: center !important; 
-          align-items: flex-start !important;
-          background: none !important;
-          padding: 4px 8px !important;
-      }
-      .game_purchase_action_bg .discount_prices > div { 
-          display: flex !important; 
-          align-items: baseline !important; 
-          gap: 6px !important; 
-          line-height: 1.4 !important;
-          height: auto !important;
-      }
-      .game_purchase_action_bg .sapx-price-label { 
-          font-size: 11px; 
-          opacity: 0.6; 
-          min-width: 32px; 
-          display: inline-block;
-      }
+      .sapx-extra-price{margin-left:6px;font-size:.85em;opacity:.9;white-space:nowrap;pointer-events:none;color:#a3d200}
+      strike .sapx-extra-price,.discount_original_price .sapx-extra-price, .StoreOriginalPrice .sapx-extra-price{opacity:.7;font-size:.85em;color:inherit}
+      #sapx-cart-summary{margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);color:#c6d4df;font-size:12px;line-height:1.4}
+      #sapx-cart-summary .sapx-row{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+      #sapx-cart-summary .sapx-value{font-weight:700;white-space:nowrap}
+      .game_purchase_action_bg .discount_block.game_purchase_discount{height:auto!important;min-height:50px!important;padding-bottom:12px!important;display:flex!important;align-items:center!important;overflow:visible!important}
+      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:flex-start!important;background:none!important;padding:4px 8px!important;position:relative!important;z-index:5!important}
+      .game_purchase_action_bg .discount_prices > div{display:flex!important;align-items:baseline!important;gap:8px!important;line-height:1.4!important;height:auto!important;position:relative!important;z-index:6!important;white-space:nowrap!important}
+      .game_purchase_action_bg .discount_prices .sapx-price-label{font-size:12px;opacity:.65;min-width:3.5em;display:inline-block;flex:0 0 auto}
+      .game_purchase_action_bg .discount_prices .sapx-extra-price{margin-left:0!important;flex:0 0 auto}
+      .Panel.Focusable .sapx-extra-price{display:inline-block;margin-top:2px}
     `;
     document.head.appendChild(style);
   }
 
-  // --- API & Cache Logic (保持不变) ---
   function gmGet(url) {
     return new Promise((resolve, reject) => {
       GM_xmlhttpRequest({
-        method: 'GET', url, timeout: 20000,
+        method: 'GET',
+        url,
+        timeout: 20000,
         onload: (res) => {
           if ((res.status >= 200 && res.status < 300) || (res.status === 0 && res.responseText)) resolve(res.responseText);
           else reject(new Error(`HTTP ${res.status}`));
         },
-        onerror: reject, ontimeout: () => reject(new Error('Timeout'))
+        onerror: reject,
+        ontimeout: () => reject(new Error('Timeout'))
       });
     });
   }
 
   class RequestQueue {
     constructor(concurrency = 4) { this.concurrency = concurrency; this.running = 0; this.queue = []; }
-    enqueue(task) { return new Promise((resolve, reject) => { this.queue.push({ task, resolve, reject }); this._deq(); }); }
+    enqueue(task) {
+      return new Promise((resolve, reject) => {
+        this.queue.push({ task, resolve, reject });
+        this._deq();
+      });
+    }
     _deq() {
       if (this.running >= this.concurrency) return;
       const job = this.queue.shift();
@@ -147,8 +129,6 @@
 
   const requestQueue = new RequestQueue(4);
   const currencyDigitsCache = new Map();
-  const priceCache = new Map();
-  const CACHE_TTL_MS = 5 * 60 * 1000;
 
   function getCurrencyFractionDigits(currency) {
     if (currencyDigitsCache.has(currency)) return currencyDigitsCache.get(currency);
@@ -170,98 +150,147 @@
     let s = String(formatted).replace(/\s+/g, '').replace(/[^\d.,]/g, '');
     if (!s) return null;
     if (fd === 0) {
-        const digits = s.replace(/\D/g, '');
-        return digits ? parseInt(digits, 10) : null;
+      const digits = s.replace(/\D/g, '');
+      if (!digits) return null;
+      const n = parseInt(digits, 10);
+      return Number.isFinite(n) ? n : null;
     }
     const lastDot = s.lastIndexOf('.');
     const lastComma = s.lastIndexOf(',');
-    let decSep = (lastDot > lastComma) ? '.' : (lastComma >= 0 ? ',' : null);
-    let parts = decSep ? s.split(decSep) : [s];
-    let fracPart = decSep ? parts.pop() : '';
-    let intPart = parts.join('').replace(/\D/g, '') || '0';
-    fracPart = (fracPart.replace(/\D/g, '') + '000').slice(0, fd);
-    return parseInt(intPart, 10) * Math.pow(10, fd) + parseInt(fracPart, 10);
+    let decSep = null;
+    if (lastDot >= 0 && lastComma >= 0) decSep = lastDot > lastComma ? '.' : ',';
+    else if (lastDot >= 0) { const after = s.length - lastDot - 1; decSep = (after === fd) ? '.' : null; }
+    else if (lastComma >= 0) { const after = s.length - lastComma - 1; decSep = (after === fd) ? ',' : null; }
+    let intPart = s;
+    let fracPart = '';
+    if (decSep) { const parts = s.split(decSep); fracPart = parts.pop() || ''; intPart = parts.join(''); }
+    intPart = intPart.replace(/[.,]/g, '').replace(/\D/g, '');
+    fracPart = fracPart.replace(/\D/g, '');
+    if (!intPart) intPart = '0';
+    if (fracPart.length > fd) fracPart = fracPart.slice(0, fd);
+    while (fracPart.length < fd) fracPart += '0';
+    const i = parseInt(intPart, 10);
+    const f = parseInt(fracPart || '0', 10);
+    if (!Number.isFinite(i) || !Number.isFinite(f)) return null;
+    return i * Math.pow(10, fd) + f;
   }
 
+  const priceCache = new Map();
+  const CACHE_TTL_MS = 5 * 60 * 1000;
+
+  function cacheGet(key) {
+    const v = priceCache.get(key);
+    if (!v) return undefined;
+    if (Date.now() - v.ts > CACHE_TTL_MS) { priceCache.delete(key); return undefined; }
+    return v.value;
+  }
+
+  function cacheSet(key, value) { priceCache.set(key, { ts: Date.now(), value }); }
+
   function normalizePrice({ currency, final, initial, finalFormatted, initialFormatted, discountPercent }) {
-    return { ok: !!(finalFormatted || initialFormatted), currency, final, initial, finalFormatted, initialFormatted, discountPercent };
+    return { ok: Boolean(finalFormatted || initialFormatted), currency, final, initial, finalFormatted, initialFormatted, discountPercent };
   }
 
   async function getAppPrice(appid, cc, currencyFallback) {
-    try {
-        const text = await requestQueue.enqueue(() => gmGet(`https://store.steampowered.com/api/appdetails?appids=${appid}&cc=${cc}&filters=price_overview,is_free`));
-        const data = JSON.parse(text)?.[appid]?.data;
-        if (!data) return null;
-        if (data.is_free) return normalizePrice({ currency: currencyFallback, final: 0, initial: 0, finalFormatted: 'Free', initialFormatted: 'Free' });
-        const po = data.price_overview;
-        return po ? normalizePrice({ currency: po.currency, final: po.final, initial: po.initial, finalFormatted: po.final_formatted, initialFormatted: po.initial_formatted || po.final_formatted }) : null;
-    } catch { return null; }
+    const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&cc=${cc}&filters=price_overview,is_free`;
+    const text = await requestQueue.enqueue(() => gmGet(url));
+    const block = JSON.parse(text)?.[String(appid)];
+    if (!block?.success) return null;
+    const data = block.data || {};
+    if (data.is_free) return normalizePrice({ currency: currencyFallback, final: 0, initial: 0, finalFormatted: 'Free', initialFormatted: 'Free' });
+    const po = data.price_overview;
+    if (!po) return null;
+    return normalizePrice({ currency: po.currency, final: po.final, initial: po.initial, finalFormatted: po.final_formatted, initialFormatted: po.initial_formatted || po.final_formatted, discountPercent: po.discount_percent });
   }
 
   async function getPackagePrice(packageid, cc, currencyFallback) {
-    try {
-        const text = await requestQueue.enqueue(() => gmGet(`https://store.steampowered.com/api/packagedetails?packageids=${packageid}&cc=${cc}`));
-        const p = JSON.parse(text)?.[packageid]?.data?.price;
-        return p ? normalizePrice({ currency: p.currency, final: p.final, initial: p.initial, finalFormatted: p.final_formatted, initialFormatted: p.initial_formatted }) : null;
-    } catch { return null; }
+    const url = `https://store.steampowered.com/api/packagedetails?packageids=${packageid}&cc=${cc}`;
+    const text = await requestQueue.enqueue(() => gmGet(url));
+    const block = JSON.parse(text)?.[String(packageid)];
+    if (!block?.success) return null;
+    const p = block.data?.price || block.data?.price_overview;
+    if (!p) return null;
+    return normalizePrice({ currency: p.currency, final: p.final, initial: p.initial, finalFormatted: p.final_formatted, initialFormatted: p.initial_formatted, discountPercent: p.discount_percent });
   }
 
   async function getBundlePrice(bundleid, cc, currencyFallback) {
-    try {
-        const html = await requestQueue.enqueue(() => gmGet(`https://store.steampowered.com/bundle/${bundleid}/?cc=${cc}&l=english`));
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        const finalEl = doc.querySelector('.discount_final_price') || doc.querySelector('.game_purchase_price');
-        if (!finalEl) return null;
-        const finalFormatted = finalEl.textContent.trim();
-        return normalizePrice({ currency: currencyFallback, final: parseFormattedToMinor(finalFormatted, currencyFallback), finalFormatted, initialFormatted: finalFormatted });
-    } catch { return null; }
+    const url = `https://store.steampowered.com/bundle/${bundleid}/?cc=${cc}&l=english`;
+    const html = await requestQueue.enqueue(() => gmGet(url));
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const finalEl = doc.querySelector('.discount_final_price') || doc.querySelector('.game_purchase_price');
+    if (!finalEl) return null;
+    const finalFormatted = finalEl.textContent.trim();
+    return normalizePrice({ currency: currencyFallback, final: parseFormattedToMinor(finalFormatted, currencyFallback), finalFormatted, initialFormatted: finalFormatted });
   }
 
   async function getPriceForItem(item, region) {
-    const cacheKey = `${item.type}:${item.id}:${region.id}`;
-    if (priceCache.has(cacheKey)) {
-        const v = priceCache.get(cacheKey);
-        if (Date.now() - v.ts < CACHE_TTL_MS) return v.val;
-    }
+    const key = `${item.type}:${item.id}:${region.id}`;
+    const cached = cacheGet(key);
+    if (cached !== undefined) return cached;
     for (const cc of region.ccCandidates) {
+      try {
         let res = null;
         if (item.type === 'app') res = await getAppPrice(item.id, cc, region.currency);
         else if (item.type === 'package') res = await getPackagePrice(item.id, cc, region.currency);
         else if (item.type === 'bundle') res = await getBundlePrice(item.id, cc, region.currency);
-        if (res) { priceCache.set(cacheKey, { ts: Date.now(), val: res }); return res; }
+        if (res?.ok) { cacheSet(key, res); return res; }
+      } catch {}
     }
-    return null;
+    cacheSet(key, null); return null;
   }
 
-  // --- DOM Logic ---
-  function inferItemFromScope(el) {
-    const holder = el.closest('[data-ds-appid],[data-ds-packageid],[data-ds-bundleid]');
+  function inferItemFromScope(scopeEl) {
+    if (!scopeEl) return null;
+    const holder = scopeEl.closest('[data-ds-appid],[data-ds-packageid],[data-ds-bundleid]');
     if (holder) {
-        if (holder.dataset.dsPackageid) return { type: 'package', id: holder.dataset.dsPackageid.split(',')[0] };
-        if (holder.dataset.dsBundleid) return { type: 'bundle', id: holder.dataset.dsBundleid };
-        if (holder.dataset.dsAppid) return { type: 'app', id: holder.dataset.dsAppid.split(',')[0] };
+      const pkg = holder.dataset.dsPackageid?.split(',')[0];
+      const bnd = holder.dataset.dsBundleid;
+      const app = holder.dataset.dsAppid?.split(',')[0];
+      if (pkg) return { type: 'package', id: pkg };
+      if (bnd) return { type: 'bundle', id: bnd };
+      if (app) return { type: 'app', id: app };
     }
-    const href = el.closest('a')?.href || '';
-    let m = href.match(/\/app\/(\d+)/); if (m) return { type: 'app', id: m[1] };
-    m = href.match(/\/sub\/(\d+)/); if (m) return { type: 'package', id: m[1] };
-    m = href.match(/\/bundle\/(\d+)/); if (m) return { type: 'bundle', id: m[1] };
+    const link = scopeEl.closest('a') || scopeEl.querySelector('a[href*="/app/"],a[href*="/sub/"],a[href*="/bundle/"]');
+    if (link) {
+      const h = link.getAttribute('href') || '';
+      let m = h.match(/\/app\/(\d+)/); if (m) return { type: 'app', id: m[1] };
+      m = h.match(/\/sub\/(\d+)/); if (m) return { type: 'package', id: m[1] };
+      m = h.match(/\/bundle\/(\d+)/); if (m) return { type: 'bundle', id: m[1] };
+    }
     const p = location.pathname;
-    m = p.match(/^\/app\/(\d+)/); if (m) return { type: 'app', id: m[1] };
+    let m = p.match(/^\/app\/(\d+)/); if (m) return { type: 'app', id: m[1] };
     m = p.match(/^\/sub\/(\d+)/); if (m) return { type: 'package', id: m[1] };
     return null;
   }
 
+  function isOriginalPriceElement(el) {
+    return el.classList.contains('discount_original_price') || el.classList.contains('StoreOriginalPrice') || el.tagName === 'STRIKE' || !!el.closest('strike');
+  }
+
+  function upsertExtraInside(priceEl, region, formatted) {
+    let span = priceEl.querySelector(`.${EXTRA_CLASS}`);
+    const text = getShowRegionCode() ? `(${region.short} ${formatted})` : `(${formatted})`;
+    if (!span) {
+      span = document.createElement('span');
+      span.className = EXTRA_CLASS;
+      span.setAttribute(MARK_ATTR, region.id);
+      span.textContent = text;
+      priceEl.appendChild(span);
+    } else {
+      span.setAttribute(MARK_ATTR, region.id);
+      span.textContent = text;
+    }
+  }
+
   async function enhancePriceElement(priceEl) {
-    if (!priceEl || priceEl.classList.contains(EXTRA_CLASS)) return;
-    
-    // 过滤：如果是纯百分比（如 -20%）则跳过，防止重叠
+    if (!priceEl || priceEl.nodeType !== 1 || priceEl.classList.contains(EXTRA_CLASS)) return;
     const txt = priceEl.textContent.trim();
-    if (/^-\d+%$/.test(txt)) return;
-    // 过滤：隐藏元素跳过
-    if (priceEl.offsetWidth === 0) return;
+    if (!txt || /^-\d+%$/.test(txt) || txt.length > 30) return;
+    if (priceEl.offsetWidth === 0 && !priceEl.closest('.game_area_purchase_game_dropdown_menu')) return;
 
     const region = getTargetRegion();
-    if (priceEl.querySelector(`.${EXTRA_CLASS}[${MARK_ATTR}="${region.id}"]`)) return;
+    const exist = priceEl.querySelector(`.${EXTRA_CLASS}`);
+    if (exist && exist.getAttribute(MARK_ATTR) === region.id) return;
 
     const item = inferItemFromScope(priceEl);
     if (!item) return;
@@ -269,65 +298,85 @@
     const price = await getPriceForItem(item, region);
     if (!price) return;
 
-    const isInitial = priceEl.classList.contains('discount_original_price') || priceEl.tagName === 'STRIKE';
-    const formatted = isInitial ? price.initialFormatted : price.finalFormatted;
+    const wantInitial = isOriginalPriceElement(priceEl);
+    const formatted = wantInitial ? price.initialFormatted : price.finalFormatted;
     if (!formatted) return;
 
-    // 详情页特殊处理标签
-    const buyBox = priceEl.closest('.game_purchase_discount');
+    const buyBox = priceEl.closest('.game_purchase_action_bg .discount_block.game_purchase_discount');
     if (buyBox) {
-        let label = priceEl.querySelector('.' + DETAIL_LABEL_CLASS);
-        if (!label) {
-            label = document.createElement('span');
-            label.className = DETAIL_LABEL_CLASS;
-            priceEl.prepend(label);
-        }
-        label.textContent = isInitial ? '原价' : '现价';
+      let label = priceEl.querySelector(`.${DETAIL_LABEL_CLASS}`);
+      if (!label) {
+        label = document.createElement('span');
+        label.className = DETAIL_LABEL_CLASS;
+        priceEl.insertAdjacentElement('afterbegin', label);
+      }
+      label.textContent = wantInitial ? '原价' : '现价';
     }
 
-    let span = priceEl.querySelector('.' + EXTRA_CLASS);
-    if (!span) {
-        span = document.createElement('span');
-        span.className = EXTRA_CLASS;
-        priceEl.appendChild(span);
+    upsertExtraInside(priceEl, region, formatted);
+  }
+
+  async function updateCartSummary() {
+    if (!isCartPage()) return;
+    const region = getTargetRegion();
+    const rows = document.querySelectorAll('.cart_item, .cart_item_row, .Panel.Focusable ._3-o3G9jt3lqcvbRXt8epsn');
+    let sumMinor = 0, okCount = 0;
+    for (const row of rows) {
+      const item = inferItemFromScope(row);
+      if (!item) continue;
+      const price = await getPriceForItem(item, region);
+      if (price?.ok && Number.isFinite(price.final)) {
+        sumMinor += price.final;
+        okCount++;
+      }
     }
-    span.setAttribute(MARK_ATTR, region.id);
-    span.textContent = getShowRegionCode() ? `(${region.short} ${formatted})` : `(${formatted})`;
+    const container = document.querySelector('.cart_totals_area, #cart_total, ._2WLaY5TxjBGVyuWe_6KS3N');
+    if (!container) return;
+    let box = document.getElementById(CART_SUMMARY_ID);
+    if (!box) { box = document.createElement('div'); box.id = CART_SUMMARY_ID; container.parentElement.appendChild(box); }
+    const totalText = formatMinorToCurrency(sumMinor, region.currency);
+    box.innerHTML = `<div class="sapx-row"><div class="sapx-label">目标地区预计付款 (${region.short})：</div><div class="sapx-value">${totalText}</div></div>`;
   }
 
-  // --- Observer & Initial ---
-  const SELECTORS = '.discount_final_price, .discount_original_price, strike, .game_purchase_price, .cart_item_price .price';
-  
-  function scan(root = document) {
-    root.querySelectorAll(SELECTORS).forEach(el => enhancePriceElement(el));
-    if (isCartPage()) updateCart();
+  const PRICE_SELECTORS = [
+    '.discount_final_price', '.discount_original_price', '.game_purchase_price',
+    '.game_area_dlc_price', '.col.search_price.responsive_secondrow strike',
+    '.col.search_price.responsive_secondrow .discount_final_price',
+    '.Panel.Focusable .StoreOriginalPrice', '.Panel.Focusable .pk-LoKoNmmPK4GBiC9DR8',
+    '._2WLaY5TxjBGVyuWe_6KS3N', '.game_area_purchase_game_dropdown_selection > span',
+    '.game_area_purchase_game_dropdown_menu_item_text'
+  ].join(',');
+
+  let scanTimer = null;
+  function scheduleScan() {
+    if (scanTimer) return;
+    scanTimer = setTimeout(() => {
+      scanTimer = null;
+      document.querySelectorAll(PRICE_SELECTORS).forEach(el => enhancePriceElement(el));
+      if (isCartPage()) updateCartSummary();
+    }, 400);
   }
 
-  async function updateCart() {
-    // 购物车逻辑简化，主要复用 enhancePriceElement
-    document.querySelectorAll('.cart_item_row').forEach(row => {
-        const p = row.querySelector('.cart_item_price .price, .discount_final_price');
-        if (p) enhancePriceElement(p);
+  function startObserver() {
+    const obs = new MutationObserver(() => scheduleScan());
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+
+  function registerMenu() {
+    GM_registerMenuCommand('设置：额外显示的地区', () => {
+      const cur = getTargetRegion();
+      const list = REGIONS.map((r, i) => `${i + 1}. ${r.label}`).join('\n');
+      const input = prompt(`当前：${cur.label}\n\n${list}\n输入序号：`);
+      const idx = parseInt(input, 10) - 1;
+      if (REGIONS[idx]) { GM_setValue(STORAGE_KEY_REGION_ID, REGIONS[idx].id); location.reload(); }
+    });
+    GM_registerMenuCommand(`切换：显示地区代码 (${getShowRegionCode() ? '开' : '关'})`, () => {
+      GM_setValue(STORAGE_KEY_SHOW_CODE, !getShowRegionCode()); location.reload();
     });
   }
 
-  let timer = null;
-  const observer = new MutationObserver(() => {
-    clearTimeout(timer);
-    timer = setTimeout(() => scan(), 500);
-  });
-
-  function init() {
-    addStyle();
-    GM_registerMenuCommand('设置地区', () => {
-        const i = prompt(REGIONS.map((r,idx)=>`${idx+1}. ${r.label}`).join('\n') + '\n请输入序号:');
-        if (i && REGIONS[i-1]) { GM_setValue(STORAGE_KEY_REGION_ID, REGIONS[i-1].id); location.reload(); }
-    });
-    GM_registerMenuCommand('切换代码显示', () => { GM_setValue(STORAGE_KEY_SHOW_CODE, !getShowRegionCode()); location.reload(); });
-    
-    scan();
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  addStyle();
+  registerMenu();
+  scheduleScan();
+  startObserver();
 })();
