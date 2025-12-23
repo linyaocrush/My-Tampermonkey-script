@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam 额外地区价格显示
 // @namespace    https://github.com/linyaocrush/My-Tampermonkey-script
-// @version      0.3.1
+// @version      0.3.2
 // @description  商店与购物车价格追加；购物车页显示“目标地区预计付款”，统计并剔除区域不可购买项
 // @match        https://store.steampowered.com/*
 // @run-at       document-idle
@@ -12,7 +12,6 @@
 // @connect      store.steampowered.com
 // @license MIT
 // ==/UserScript==
-
 
 (function () {
   'use strict';
@@ -73,32 +72,126 @@
   const EXTRA_CLASS = 'sapx-extra-price';
   const CART_SUMMARY_ID = 'sapx-cart-summary';
   const MARK_ATTR = 'data-sapx-region';
-  const DETAIL_LABEL_CLASS = 'sapx-price-label';
+
+  const UI_STYLE_ID = 'sapx-ui-style';
+  const UI_ROOT_ID = 'sapx-ui-root';
 
   function addStyle() {
-    if (document.getElementById(STYLE_ID)) return;
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = `
-      .sapx-extra-price{margin-left:6px;font-size:0.9em;opacity:1;white-space:nowrap;pointer-events:none;color:#67c1f5;display:inline-block;font-weight:normal}
-      strike .sapx-extra-price,.discount_original_price .sapx-extra-price, .StoreOriginalPrice .sapx-extra-price{opacity:0.65;font-size:0.85em;color:#acb2b8;text-decoration:line-through}
-      #sapx-cart-summary{margin-top:8px;margin-bottom:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.1);color:#c6d4df;font-size:12px;line-height:1.4}
-      #sapx-cart-summary .sapx-row{display:flex;justify-content:space-between;gap:8px;align-items:center}
-      #sapx-cart-summary .sapx-label{font-size:11px;opacity:0.8;color:#acb2b8}
-      #sapx-cart-summary .sapx-value{font-weight:700;white-space:nowrap;color:#67c1f5;font-size:14px}
-      #sapx-cart-summary .sapx-warn{margin-top:4px;color:#e46767;font-size:10px;opacity:0.9}
-      .game_purchase_action_bg{height:auto!important;background:none!important}
-      .game_purchase_action_bg .discount_block.game_purchase_discount{height:auto!important;min-height:unset!important;padding:8px 0 10px 0!important;display:flex!important;align-items:center!important;overflow:visible!important;background:none!important}
-      .game_purchase_action_bg .discount_block.game_purchase_discount .discount_prices{display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:flex-start!important;background:none!important;padding:0 12px!important;position:relative!important;z-index:10!important;gap:2px!important}
-      .game_purchase_action_bg .discount_prices > div{display:flex!important;align-items:baseline!important;gap:6px!important;line-height:1.3!important;height:auto!important;position:relative!important;z-index:11!important;white-space:nowrap!important}
-      .game_purchase_action_bg .discount_prices .sapx-price-label{font-size:11px;color:#acb2b8;min-width:2.8em;display:inline-block;flex:0 0 auto;text-transform:uppercase;letter-spacing:0.5px}
-      .game_purchase_action_bg .discount_prices .sapx-extra-price{margin-left:4px!important;flex:0 0 auto}
-      .Panel.Focusable .sapx-extra-price{display:inline-block;margin-top:2px}
-      .game_purchase_action_bg .discount_prices .discount_original_price{text-decoration:none!important}
-      .game_purchase_action_bg .discount_prices .discount_original_price::before,.game_purchase_action_bg .discount_prices .discount_original_price::after{content:none!important;display:none!important}
-      .game_purchase_action_bg .discount_prices .discount_original_price .sapx-extra-price{text-decoration:none!important}
+    if (!document.getElementById(STYLE_ID)) {
+      const style = document.createElement('style');
+      style.id = STYLE_ID;
+      style.textContent = `
+        .sapx-extra-price{margin-left:6px;font-size:0.9em;opacity:1;white-space:nowrap;pointer-events:none;color:#67c1f5;display:inline-block;font-weight:normal}
+        strike .sapx-extra-price,.discount_original_price .sapx-extra-price,.StoreOriginalPrice .sapx-extra-price{opacity:0.65;font-size:0.85em;color:#acb2b8;text-decoration:line-through}
+        #sapx-cart-summary{margin-top:8px;margin-bottom:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.1);color:#c6d4df;font-size:12px;line-height:1.4}
+        #sapx-cart-summary .sapx-row{display:flex;justify-content:space-between;gap:8px;align-items:center}
+        #sapx-cart-summary .sapx-label{font-size:11px;opacity:0.8;color:#acb2b8}
+        #sapx-cart-summary .sapx-value{font-weight:700;white-space:nowrap;color:#67c1f5;font-size:14px}
+        #sapx-cart-summary .sapx-warn{margin-top:4px;color:#e46767;font-size:10px;opacity:0.9}
+        .game_purchase_action_bg .discount_prices .discount_original_price{text-decoration:none!important}
+        .game_purchase_action_bg .discount_prices .discount_original_price::before,.game_purchase_action_bg .discount_prices .discount_original_price::after{content:none!important;display:none!important}
+        .game_purchase_action_bg .discount_prices .discount_original_price .sapx-extra-price{text-decoration:none!important}
+      `;
+      document.head.appendChild(style);
+    }
+    if (!document.getElementById(UI_STYLE_ID)) {
+      const style = document.createElement('style');
+      style.id = UI_STYLE_ID;
+      style.textContent = `
+        #${UI_ROOT_ID}{position:fixed;inset:0;z-index:2147483647;display:none}
+        #${UI_ROOT_ID}.sapx-open{display:block}
+        #${UI_ROOT_ID} .sapx-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.72)}
+        #${UI_ROOT_ID} .sapx-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 24px));background:linear-gradient(180deg,#1b2838 0%,#171a21 100%);border:1px solid rgba(255,255,255,0.08);box-shadow:0 18px 60px rgba(0,0,0,0.65);border-radius:6px;color:#c6d4df;font-family:Arial,Helvetica,sans-serif}
+        #${UI_ROOT_ID} .sapx-header{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 10px 14px;border-bottom:1px solid rgba(255,255,255,0.08)}
+        #${UI_ROOT_ID} .sapx-title{font-size:14px;font-weight:700;letter-spacing:0.2px;color:#e5e5e5}
+        #${UI_ROOT_ID} .sapx-close{appearance:none;border:0;background:transparent;color:#8f98a0;font-size:18px;line-height:1;cursor:pointer;padding:4px 6px}
+        #${UI_ROOT_ID} .sapx-close:hover{color:#c6d4df}
+        #${UI_ROOT_ID} .sapx-body{padding:14px}
+        #${UI_ROOT_ID} .sapx-field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+        #${UI_ROOT_ID} .sapx-label{font-size:12px;color:#acb2b8}
+        #${UI_ROOT_ID} select.sapx-select{appearance:none;background:#0f141b;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#c6d4df;padding:8px 10px;font-size:13px;outline:none}
+        #${UI_ROOT_ID} select.sapx-select:focus{border-color:rgba(103,193,245,0.8);box-shadow:0 0 0 2px rgba(103,193,245,0.15)}
+        #${UI_ROOT_ID} .sapx-details{border:1px solid rgba(255,255,255,0.08);border-radius:4px;background:rgba(0,0,0,0.15);padding:10px}
+        #${UI_ROOT_ID} .sapx-details summary{cursor:pointer;color:#67c1f5;font-size:12px;list-style:none}
+        #${UI_ROOT_ID} .sapx-details summary::-webkit-details-marker{display:none}
+        #${UI_ROOT_ID} .sapx-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+        #${UI_ROOT_ID} .sapx-check{display:flex;align-items:center;gap:8px;font-size:13px;color:#c6d4df}
+        #${UI_ROOT_ID} input[type="checkbox"].sapx-checkbox{width:16px;height:16px;accent-color:#67c1f5}
+        #${UI_ROOT_ID} .sapx-footer{display:flex;justify-content:flex-end;gap:10px;padding:12px 14px;border-top:1px solid rgba(255,255,255,0.08)}
+        #${UI_ROOT_ID} .sapx-btn{appearance:none;border:0;border-radius:2px;padding:8px 12px;font-weight:700;cursor:pointer;font-size:13px}
+        #${UI_ROOT_ID} .sapx-btn-primary{background:linear-gradient(180deg,#67c1f5 0%,#4aa3d6 100%);color:#0b1117}
+        #${UI_ROOT_ID} .sapx-btn-primary:hover{filter:brightness(1.03)}
+        #${UI_ROOT_ID} .sapx-btn-ghost{background:rgba(255,255,255,0.06);color:#c6d4df}
+        #${UI_ROOT_ID} .sapx-btn-ghost:hover{background:rgba(255,255,255,0.09)}
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
+  function ensureSettingsUI() {
+    let root = document.getElementById(UI_ROOT_ID);
+    if (root) return root;
+    root = document.createElement('div');
+    root.id = UI_ROOT_ID;
+    root.innerHTML = `
+      <div class="sapx-backdrop"></div>
+      <div class="sapx-panel" role="dialog" aria-modal="true">
+        <div class="sapx-header">
+          <div class="sapx-title">额外地区价格显示 设置</div>
+          <button class="sapx-close" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="sapx-body">
+          <div class="sapx-field">
+            <div class="sapx-label">额外显示的地区</div>
+            <select class="sapx-select" id="sapx-region-select"></select>
+          </div>
+          <details class="sapx-details" id="sapx-adv" open="false">
+            <summary>更多设置</summary>
+            <div class="sapx-row">
+              <label class="sapx-check">
+                <input class="sapx-checkbox" id="sapx-show-code" type="checkbox" />
+                <span>显示地区代码（例如 CN / US）</span>
+              </label>
+            </div>
+          </details>
+        </div>
+        <div class="sapx-footer">
+          <button class="sapx-btn sapx-btn-ghost" type="button" id="sapx-cancel">取消</button>
+          <button class="sapx-btn sapx-btn-primary" type="button" id="sapx-save">保存并刷新</button>
+        </div>
+      </div>
     `;
-    document.head.appendChild(style);
+    document.documentElement.appendChild(root);
+    const close = () => { root.classList.remove('sapx-open'); };
+    root.querySelector('.sapx-backdrop').addEventListener('click', close);
+    root.querySelector('.sapx-close').addEventListener('click', close);
+    root.querySelector('#sapx-cancel').addEventListener('click', close);
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && root.classList.contains('sapx-open')) close(); }, { passive: true });
+    return root;
+  }
+
+  function openSettingsUI() {
+    const root = ensureSettingsUI();
+    const select = root.querySelector('#sapx-region-select');
+    const showCode = root.querySelector('#sapx-show-code');
+    const adv = root.querySelector('#sapx-adv');
+    adv.removeAttribute('open');
+
+    const cur = getTargetRegion();
+    select.innerHTML = REGIONS.map(r => `<option value="${r.id}">${r.label}</option>`).join('');
+    select.value = cur.id;
+    showCode.checked = getShowRegionCode();
+
+    root.querySelector('#sapx-save').onclick = () => {
+      const nextId = select.value;
+      const nextShow = Boolean(showCode.checked);
+      GM_setValue(STORAGE_KEY_REGION_ID, nextId);
+      GM_setValue(STORAGE_KEY_SHOW_CODE, nextShow);
+      location.reload();
+    };
+
+    root.classList.add('sapx-open');
+    select.focus();
   }
 
   function gmGet(url) {
@@ -309,17 +402,6 @@
     const formatted = wantInitial ? price.initialFormatted : price.finalFormatted;
     if (!formatted) return;
 
-    const buyBox = priceEl.closest('.game_purchase_action_bg .discount_block.game_purchase_discount');
-    if (buyBox) {
-      let label = priceEl.querySelector(`.${DETAIL_LABEL_CLASS}`);
-      if (!label) {
-        label = document.createElement('span');
-        label.className = DETAIL_LABEL_CLASS;
-        priceEl.insertAdjacentElement('afterbegin', label);
-      }
-      label.textContent = wantInitial ? '原价' : '现价';
-    }
-
     upsertExtraInside(priceEl, region, formatted);
   }
 
@@ -330,18 +412,14 @@
     if (!items.length) return;
 
     let sumMinor = 0;
-    let totalItemsCount = items.length;
     let missingCount = 0;
 
     for (const row of items) {
       const item = inferItemFromScope(row);
       if (!item) continue;
       const price = await getPriceForItem(item, region);
-      if (price?.ok && price.final !== null && Number.isFinite(price.final)) {
-        sumMinor += price.final;
-      } else {
-        missingCount++;
-      }
+      if (price?.ok && price.final !== null && Number.isFinite(price.final)) sumMinor += price.final;
+      else missingCount++;
     }
 
     const cartSummaryRow = document.querySelector('._2DjadWLFH3keW9rGWZKxSk._1G8JdfmCwhonn-pZk-tfwP');
@@ -356,11 +434,9 @@
 
     const totalText = formatMinorToCurrency(sumMinor, region.currency);
     const label = getShowRegionCode() ? `目标地区预计付款 (${region.short})` : '目标地区预计付款';
-    
+
     let html = `<div class="sapx-row"><div class="sapx-label">${label}：</div><div class="sapx-value">${totalText}</div></div>`;
-    if (missingCount > 0) {
-      html += `<div class="sapx-warn">注意：有 ${missingCount} 项商品无法在目标地区购买（已从合计剔除）</div>`;
-    }
+    if (missingCount > 0) html += `<div class="sapx-warn">注意：有 ${missingCount} 项商品无法在目标地区购买（已从合计剔除）</div>`;
     box.innerHTML = html;
   }
 
@@ -389,16 +465,7 @@
   }
 
   function registerMenu() {
-    GM_registerMenuCommand('设置：额外显示的地区', () => {
-      const cur = getTargetRegion();
-      const list = REGIONS.map((r, i) => `${i + 1}. ${r.label}`).join('\n');
-      const input = prompt(`当前：${cur.label}\n\n${list}\n输入序号：`);
-      const idx = parseInt(input, 10) - 1;
-      if (REGIONS[idx]) { GM_setValue(STORAGE_KEY_REGION_ID, REGIONS[idx].id); location.reload(); }
-    });
-    GM_registerMenuCommand(`切换：显示地区代码 (${getShowRegionCode() ? '开' : '关'})`, () => {
-      GM_setValue(STORAGE_KEY_SHOW_CODE, !getShowRegionCode()); location.reload();
-    });
+    GM_registerMenuCommand('设置：额外地区价格显示', () => openSettingsUI());
   }
 
   addStyle();
@@ -406,9 +473,4 @@
   scheduleScan();
   startObserver();
 })();
-
-
-
-
-
-
+```
