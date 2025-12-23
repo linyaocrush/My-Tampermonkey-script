@@ -80,50 +80,48 @@
     if (!document.getElementById(STYLE_ID)) {
       const style = document.createElement('style');
       style.id = STYLE_ID;
-      style.textContent = `
-        .sapx-extra-price{margin-left:6px;font-size:0.9em;opacity:1;white-space:nowrap;pointer-events:none;color:#67c1f5;display:inline-block;font-weight:normal}
-        strike .sapx-extra-price,.discount_original_price .sapx-extra-price,.StoreOriginalPrice .sapx-extra-price{opacity:0.65;font-size:0.85em;color:#acb2b8;text-decoration:line-through}
-        #sapx-cart-summary{margin-top:8px;margin-bottom:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.1);color:#c6d4df;font-size:12px;line-height:1.4}
-        #sapx-cart-summary .sapx-row{display:flex;justify-content:space-between;gap:8px;align-items:center}
-        #sapx-cart-summary .sapx-label{font-size:11px;opacity:0.8;color:#acb2b8}
-        #sapx-cart-summary .sapx-value{font-weight:700;white-space:nowrap;color:#67c1f5;font-size:14px}
-        #sapx-cart-summary .sapx-warn{margin-top:4px;color:#e46767;font-size:10px;opacity:0.9}
-        .game_purchase_action_bg .discount_prices .discount_original_price{text-decoration:none!important}
-        .game_purchase_action_bg .discount_prices .discount_original_price::before,.game_purchase_action_bg .discount_prices .discount_original_price::after{content:none!important;display:none!important}
-        .game_purchase_action_bg .discount_prices .discount_original_price .sapx-extra-price{text-decoration:none!important}
-      `;
+      style.textContent =
+        '.sapx-extra-price{margin-left:6px;font-size:0.9em;opacity:1;white-space:nowrap;pointer-events:none;color:#67c1f5;display:inline-block;font-weight:normal}' +
+        'strike .sapx-extra-price,.discount_original_price .sapx-extra-price,.StoreOriginalPrice .sapx-extra-price{opacity:0.65;font-size:0.85em;color:#acb2b8;text-decoration:line-through}' +
+        '#sapx-cart-summary{margin-top:8px;margin-bottom:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.1);color:#c6d4df;font-size:12px;line-height:1.4}' +
+        '#sapx-cart-summary .sapx-row{display:flex;justify-content:space-between;gap:8px;align-items:center}' +
+        '#sapx-cart-summary .sapx-label{font-size:11px;opacity:0.8;color:#acb2b8}' +
+        '#sapx-cart-summary .sapx-value{font-weight:700;white-space:nowrap;color:#67c1f5;font-size:14px}' +
+        '#sapx-cart-summary .sapx-warn{margin-top:4px;color:#e46767;font-size:10px;opacity:0.9}' +
+        '.game_purchase_action_bg .discount_prices .discount_original_price{text-decoration:none!important}' +
+        '.game_purchase_action_bg .discount_prices .discount_original_price::before,.game_purchase_action_bg .discount_prices .discount_original_price::after{content:none!important;display:none!important}' +
+        '.game_purchase_action_bg .discount_prices .discount_original_price .sapx-extra-price{text-decoration:none!important}';
       document.head.appendChild(style);
     }
     if (!document.getElementById(UI_STYLE_ID)) {
       const style = document.createElement('style');
       style.id = UI_STYLE_ID;
-      style.textContent = `
-        #${UI_ROOT_ID}{position:fixed;inset:0;z-index:2147483647;display:none}
-        #${UI_ROOT_ID}.sapx-open{display:block}
-        #${UI_ROOT_ID} .sapx-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.72)}
-        #${UI_ROOT_ID} .sapx-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 24px));background:linear-gradient(180deg,#1b2838 0%,#171a21 100%);border:1px solid rgba(255,255,255,0.08);box-shadow:0 18px 60px rgba(0,0,0,0.65);border-radius:6px;color:#c6d4df;font-family:Arial,Helvetica,sans-serif}
-        #${UI_ROOT_ID} .sapx-header{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 10px 14px;border-bottom:1px solid rgba(255,255,255,0.08)}
-        #${UI_ROOT_ID} .sapx-title{font-size:14px;font-weight:700;letter-spacing:0.2px;color:#e5e5e5}
-        #${UI_ROOT_ID} .sapx-close{appearance:none;border:0;background:transparent;color:#8f98a0;font-size:18px;line-height:1;cursor:pointer;padding:4px 6px}
-        #${UI_ROOT_ID} .sapx-close:hover{color:#c6d4df}
-        #${UI_ROOT_ID} .sapx-body{padding:14px}
-        #${UI_ROOT_ID} .sapx-field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
-        #${UI_ROOT_ID} .sapx-label{font-size:12px;color:#acb2b8}
-        #${UI_ROOT_ID} select.sapx-select{appearance:none;background:#0f141b;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#c6d4df;padding:8px 10px;font-size:13px;outline:none}
-        #${UI_ROOT_ID} select.sapx-select:focus{border-color:rgba(103,193,245,0.8);box-shadow:0 0 0 2px rgba(103,193,245,0.15)}
-        #${UI_ROOT_ID} .sapx-details{border:1px solid rgba(255,255,255,0.08);border-radius:4px;background:rgba(0,0,0,0.15);padding:10px}
-        #${UI_ROOT_ID} .sapx-details summary{cursor:pointer;color:#67c1f5;font-size:12px;list-style:none}
-        #${UI_ROOT_ID} .sapx-details summary::-webkit-details-marker{display:none}
-        #${UI_ROOT_ID} .sapx-row{display:flex;align-items:center;gap:10px;margin-top:10px}
-        #${UI_ROOT_ID} .sapx-check{display:flex;align-items:center;gap:8px;font-size:13px;color:#c6d4df}
-        #${UI_ROOT_ID} input[type="checkbox"].sapx-checkbox{width:16px;height:16px;accent-color:#67c1f5}
-        #${UI_ROOT_ID} .sapx-footer{display:flex;justify-content:flex-end;gap:10px;padding:12px 14px;border-top:1px solid rgba(255,255,255,0.08)}
-        #${UI_ROOT_ID} .sapx-btn{appearance:none;border:0;border-radius:2px;padding:8px 12px;font-weight:700;cursor:pointer;font-size:13px}
-        #${UI_ROOT_ID} .sapx-btn-primary{background:linear-gradient(180deg,#67c1f5 0%,#4aa3d6 100%);color:#0b1117}
-        #${UI_ROOT_ID} .sapx-btn-primary:hover{filter:brightness(1.03)}
-        #${UI_ROOT_ID} .sapx-btn-ghost{background:rgba(255,255,255,0.06);color:#c6d4df}
-        #${UI_ROOT_ID} .sapx-btn-ghost:hover{background:rgba(255,255,255,0.09)}
-      `;
+      style.textContent =
+        '#' + UI_ROOT_ID + '{position:fixed;inset:0;z-index:2147483647;display:none}' +
+        '#' + UI_ROOT_ID + '.sapx-open{display:block}' +
+        '#' + UI_ROOT_ID + ' .sapx-backdrop{position:absolute;inset:0;background:rgba(0,0,0,0.72)}' +
+        '#' + UI_ROOT_ID + ' .sapx-panel{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100vw - 24px));background:linear-gradient(180deg,#1b2838 0%,#171a21 100%);border:1px solid rgba(255,255,255,0.08);box-shadow:0 18px 60px rgba(0,0,0,0.65);border-radius:6px;color:#c6d4df;font-family:Arial,Helvetica,sans-serif}' +
+        '#' + UI_ROOT_ID + ' .sapx-header{display:flex;align-items:center;justify-content:space-between;padding:14px 14px 10px 14px;border-bottom:1px solid rgba(255,255,255,0.08)}' +
+        '#' + UI_ROOT_ID + ' .sapx-title{font-size:14px;font-weight:700;letter-spacing:0.2px;color:#e5e5e5}' +
+        '#' + UI_ROOT_ID + ' .sapx-close{appearance:none;border:0;background:transparent;color:#8f98a0;font-size:18px;line-height:1;cursor:pointer;padding:4px 6px}' +
+        '#' + UI_ROOT_ID + ' .sapx-close:hover{color:#c6d4df}' +
+        '#' + UI_ROOT_ID + ' .sapx-body{padding:14px}' +
+        '#' + UI_ROOT_ID + ' .sapx-field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}' +
+        '#' + UI_ROOT_ID + ' .sapx-label{font-size:12px;color:#acb2b8}' +
+        '#' + UI_ROOT_ID + ' select.sapx-select{appearance:none;background:#0f141b;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#c6d4df;padding:8px 10px;font-size:13px;outline:none}' +
+        '#' + UI_ROOT_ID + ' select.sapx-select:focus{border-color:rgba(103,193,245,0.8);box-shadow:0 0 0 2px rgba(103,193,245,0.15)}' +
+        '#' + UI_ROOT_ID + ' .sapx-details{border:1px solid rgba(255,255,255,0.08);border-radius:4px;background:rgba(0,0,0,0.15);padding:10px}' +
+        '#' + UI_ROOT_ID + ' .sapx-details summary{cursor:pointer;color:#67c1f5;font-size:12px;list-style:none}' +
+        '#' + UI_ROOT_ID + ' .sapx-details summary::-webkit-details-marker{display:none}' +
+        '#' + UI_ROOT_ID + ' .sapx-row{display:flex;align-items:center;gap:10px;margin-top:10px}' +
+        '#' + UI_ROOT_ID + ' .sapx-check{display:flex;align-items:center;gap:8px;font-size:13px;color:#c6d4df}' +
+        '#' + UI_ROOT_ID + ' input[type="checkbox"].sapx-checkbox{width:16px;height:16px;accent-color:#67c1f5}' +
+        '#' + UI_ROOT_ID + ' .sapx-footer{display:flex;justify-content:flex-end;gap:10px;padding:12px 14px;border-top:1px solid rgba(255,255,255,0.08)}' +
+        '#' + UI_ROOT_ID + ' .sapx-btn{appearance:none;border:0;border-radius:2px;padding:8px 12px;font-weight:700;cursor:pointer;font-size:13px}' +
+        '#' + UI_ROOT_ID + ' .sapx-btn-primary{background:linear-gradient(180deg,#67c1f5 0%,#4aa3d6 100%);color:#0b1117}' +
+        '#' + UI_ROOT_ID + ' .sapx-btn-primary:hover{filter:brightness(1.03)}' +
+        '#' + UI_ROOT_ID + ' .sapx-btn-ghost{background:rgba(255,255,255,0.06);color:#c6d4df}' +
+        '#' + UI_ROOT_ID + ' .sapx-btn-ghost:hover{background:rgba(255,255,255,0.09)}';
       document.head.appendChild(style);
     }
   }
@@ -133,34 +131,33 @@
     if (root) return root;
     root = document.createElement('div');
     root.id = UI_ROOT_ID;
-    root.innerHTML = `
-      <div class="sapx-backdrop"></div>
-      <div class="sapx-panel" role="dialog" aria-modal="true">
-        <div class="sapx-header">
-          <div class="sapx-title">额外地区价格显示 设置</div>
-          <button class="sapx-close" type="button" aria-label="Close">×</button>
-        </div>
-        <div class="sapx-body">
-          <div class="sapx-field">
-            <div class="sapx-label">额外显示的地区</div>
-            <select class="sapx-select" id="sapx-region-select"></select>
-          </div>
-          <details class="sapx-details" id="sapx-adv" open="false">
-            <summary>更多设置</summary>
-            <div class="sapx-row">
-              <label class="sapx-check">
-                <input class="sapx-checkbox" id="sapx-show-code" type="checkbox" />
-                <span>显示地区代码（例如 CN / US）</span>
-              </label>
-            </div>
-          </details>
-        </div>
-        <div class="sapx-footer">
-          <button class="sapx-btn sapx-btn-ghost" type="button" id="sapx-cancel">取消</button>
-          <button class="sapx-btn sapx-btn-primary" type="button" id="sapx-save">保存并刷新</button>
-        </div>
-      </div>
-    `;
+    root.innerHTML =
+      '<div class="sapx-backdrop"></div>' +
+      '<div class="sapx-panel" role="dialog" aria-modal="true">' +
+      '<div class="sapx-header">' +
+      '<div class="sapx-title">额外地区价格显示 设置</div>' +
+      '<button class="sapx-close" type="button" aria-label="Close">×</button>' +
+      '</div>' +
+      '<div class="sapx-body">' +
+      '<div class="sapx-field">' +
+      '<div class="sapx-label">额外显示的地区</div>' +
+      '<select class="sapx-select" id="sapx-region-select"></select>' +
+      '</div>' +
+      '<details class="sapx-details" id="sapx-adv">' +
+      '<summary>更多设置</summary>' +
+      '<div class="sapx-row">' +
+      '<label class="sapx-check">' +
+      '<input class="sapx-checkbox" id="sapx-show-code" type="checkbox" />' +
+      '<span>显示地区代码（例如 CN / US）</span>' +
+      '</label>' +
+      '</div>' +
+      '</details>' +
+      '</div>' +
+      '<div class="sapx-footer">' +
+      '<button class="sapx-btn sapx-btn-ghost" type="button" id="sapx-cancel">取消</button>' +
+      '<button class="sapx-btn sapx-btn-primary" type="button" id="sapx-save">保存并刷新</button>' +
+      '</div>' +
+      '</div>';
     document.documentElement.appendChild(root);
     const close = () => { root.classList.remove('sapx-open'); };
     root.querySelector('.sapx-backdrop').addEventListener('click', close);
@@ -176,20 +173,15 @@
     const showCode = root.querySelector('#sapx-show-code');
     const adv = root.querySelector('#sapx-adv');
     adv.removeAttribute('open');
-
     const cur = getTargetRegion();
-    select.innerHTML = REGIONS.map(r => `<option value="${r.id}">${r.label}</option>`).join('');
+    select.innerHTML = REGIONS.map(r => '<option value="' + r.id + '">' + r.label + '</option>').join('');
     select.value = cur.id;
     showCode.checked = getShowRegionCode();
-
     root.querySelector('#sapx-save').onclick = () => {
-      const nextId = select.value;
-      const nextShow = Boolean(showCode.checked);
-      GM_setValue(STORAGE_KEY_REGION_ID, nextId);
-      GM_setValue(STORAGE_KEY_SHOW_CODE, nextShow);
+      GM_setValue(STORAGE_KEY_REGION_ID, select.value);
+      GM_setValue(STORAGE_KEY_SHOW_CODE, Boolean(showCode.checked));
       location.reload();
     };
-
     root.classList.add('sapx-open');
     select.focus();
   }
@@ -202,7 +194,7 @@
         timeout: 20000,
         onload: (res) => {
           if ((res.status >= 200 && res.status < 300) || (res.status === 0 && res.responseText)) resolve(res.responseText);
-          else reject(new Error(`HTTP ${res.status}`));
+          else reject(new Error('HTTP ' + res.status));
         },
         onerror: reject,
         ontimeout: () => reject(new Error('Timeout'))
@@ -233,7 +225,7 @@
   function getCurrencyFractionDigits(currency) {
     if (currencyDigitsCache.has(currency)) return currencyDigitsCache.get(currency);
     let digits = 2;
-    try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits; } catch {}
+    try { digits = new Intl.NumberFormat('en-US', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits; } catch (e) {}
     currencyDigitsCache.set(currency, digits);
     return digits;
   }
@@ -241,7 +233,7 @@
   function formatMinorToCurrency(minor, currency) {
     const fd = getCurrencyFractionDigits(currency);
     const major = minor / Math.pow(10, fd);
-    try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(major); } catch { return `${major.toFixed(fd)} ${currency}`; }
+    try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(major); } catch (e) { return String(major.toFixed(fd)) + ' ' + currency; }
   }
 
   function parseFormattedToMinor(formatted, currency) {
@@ -287,44 +279,73 @@
 
   function cacheSet(key, value) { priceCache.set(key, { ts: Date.now(), value }); }
 
-  function normalizePrice({ currency, final, initial, finalFormatted, initialFormatted, discountPercent }) {
-    return { ok: Boolean(finalFormatted || initialFormatted), currency, final, initial, finalFormatted, initialFormatted, discountPercent };
+  function normalizePrice(o) {
+    return {
+      ok: Boolean(o.finalFormatted || o.initialFormatted),
+      currency: o.currency,
+      final: o.final,
+      initial: o.initial,
+      finalFormatted: o.finalFormatted,
+      initialFormatted: o.initialFormatted,
+      discountPercent: o.discountPercent
+    };
   }
 
   async function getAppPrice(appid, cc, currencyFallback) {
-    const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&cc=${cc}&filters=price_overview,is_free`;
+    const url = 'https://store.steampowered.com/api/appdetails?appids=' + appid + '&cc=' + cc + '&filters=price_overview,is_free';
     const text = await requestQueue.enqueue(() => gmGet(url));
-    const block = JSON.parse(text)?.[String(appid)];
-    if (!block?.success) return null;
+    const block = JSON.parse(text) && JSON.parse(text)[String(appid)];
+    if (!block || !block.success) return null;
     const data = block.data || {};
     if (data.is_free) return normalizePrice({ currency: currencyFallback, final: 0, initial: 0, finalFormatted: 'Free', initialFormatted: 'Free' });
     const po = data.price_overview;
     if (!po) return null;
-    return normalizePrice({ currency: po.currency, final: po.final, initial: po.initial, finalFormatted: po.final_formatted, initialFormatted: po.initial_formatted || po.final_formatted, discountPercent: po.discount_percent });
+    return normalizePrice({
+      currency: po.currency,
+      final: po.final,
+      initial: po.initial,
+      finalFormatted: po.final_formatted,
+      initialFormatted: po.initial_formatted || po.final_formatted,
+      discountPercent: po.discount_percent
+    });
   }
 
   async function getPackagePrice(packageid, cc, currencyFallback) {
-    const url = `https://store.steampowered.com/api/packagedetails?packageids=${packageid}&cc=${cc}`;
+    const url = 'https://store.steampowered.com/api/packagedetails?packageids=' + packageid + '&cc=' + cc;
     const text = await requestQueue.enqueue(() => gmGet(url));
-    const block = JSON.parse(text)?.[String(packageid)];
-    if (!block?.success) return null;
-    const p = block.data?.price || block.data?.price_overview;
+    const block = JSON.parse(text) && JSON.parse(text)[String(packageid)];
+    if (!block || !block.success) return null;
+    const p = (block.data && (block.data.price || block.data.price_overview)) || null;
     if (!p) return null;
-    return normalizePrice({ currency: p.currency, final: p.final, initial: p.initial, finalFormatted: p.final_formatted, initialFormatted: p.initial_formatted, discountPercent: p.discount_percent });
+    return normalizePrice({
+      currency: p.currency,
+      final: p.final,
+      initial: p.initial,
+      finalFormatted: p.final_formatted,
+      initialFormatted: p.initial_formatted,
+      discountPercent: p.discount_percent
+    });
   }
 
   async function getBundlePrice(bundleid, cc, currencyFallback) {
-    const url = `https://store.steampowered.com/bundle/${bundleid}/?cc=${cc}&l=english`;
+    const url = 'https://store.steampowered.com/bundle/' + bundleid + '/?cc=' + cc + '&l=english';
     const html = await requestQueue.enqueue(() => gmGet(url));
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const finalEl = doc.querySelector('.discount_final_price') || doc.querySelector('.game_purchase_price');
     if (!finalEl) return null;
     const finalFormatted = finalEl.textContent.trim();
-    return normalizePrice({ currency: currencyFallback, final: parseFormattedToMinor(finalFormatted, currencyFallback), finalFormatted, initialFormatted: finalFormatted });
+    return normalizePrice({
+      currency: currencyFallback,
+      final: parseFormattedToMinor(finalFormatted, currencyFallback),
+      initial: parseFormattedToMinor(finalFormatted, currencyFallback),
+      finalFormatted: finalFormatted,
+      initialFormatted: finalFormatted,
+      discountPercent: undefined
+    });
   }
 
   async function getPriceForItem(item, region) {
-    const key = `${item.type}:${item.id}:${region.id}`;
+    const key = item.type + ':' + item.id + ':' + region.id;
     const cached = cacheGet(key);
     if (cached !== undefined) return cached;
     for (const cc of region.ccCandidates) {
@@ -333,19 +354,20 @@
         if (item.type === 'app') res = await getAppPrice(item.id, cc, region.currency);
         else if (item.type === 'package') res = await getPackagePrice(item.id, cc, region.currency);
         else if (item.type === 'bundle') res = await getBundlePrice(item.id, cc, region.currency);
-        if (res?.ok) { cacheSet(key, res); return res; }
-      } catch {}
+        if (res && res.ok) { cacheSet(key, res); return res; }
+      } catch (e) {}
     }
-    cacheSet(key, null); return null;
+    cacheSet(key, null);
+    return null;
   }
 
   function inferItemFromScope(scopeEl) {
     if (!scopeEl) return null;
     const holder = scopeEl.closest('[data-ds-appid],[data-ds-packageid],[data-ds-bundleid]');
     if (holder) {
-      const pkg = holder.dataset.dsPackageid?.split(',')[0];
+      const pkg = holder.dataset.dsPackageid && holder.dataset.dsPackageid.split(',')[0];
       const bnd = holder.dataset.dsBundleid;
-      const app = holder.dataset.dsAppid?.split(',')[0];
+      const app = holder.dataset.dsAppid && holder.dataset.dsAppid.split(',')[0];
       if (pkg) return { type: 'package', id: pkg };
       if (bnd) return { type: 'bundle', id: bnd };
       if (app) return { type: 'app', id: app };
@@ -368,8 +390,8 @@
   }
 
   function upsertExtraInside(priceEl, region, formatted) {
-    let span = priceEl.querySelector(`.${EXTRA_CLASS}`);
-    const text = getShowRegionCode() ? `(${region.short} ${formatted})` : `(${formatted})`;
+    let span = priceEl.querySelector('.' + EXTRA_CLASS);
+    const text = getShowRegionCode() ? '(' + region.short + ' ' + formatted + ')' : '(' + formatted + ')';
     if (!span) {
       span = document.createElement('span');
       span.className = EXTRA_CLASS;
@@ -389,7 +411,7 @@
     if (priceEl.offsetWidth === 0 && !priceEl.closest('.game_area_purchase_game_dropdown_menu')) return;
 
     const region = getTargetRegion();
-    const exist = priceEl.querySelector(`.${EXTRA_CLASS}`);
+    const exist = priceEl.querySelector('.' + EXTRA_CLASS);
     if (exist && exist.getAttribute(MARK_ATTR) === region.id) return;
 
     const item = inferItemFromScope(priceEl);
@@ -418,7 +440,7 @@
       const item = inferItemFromScope(row);
       if (!item) continue;
       const price = await getPriceForItem(item, region);
-      if (price?.ok && price.final !== null && Number.isFinite(price.final)) sumMinor += price.final;
+      if (price && price.ok && price.final !== null && Number.isFinite(price.final)) sumMinor += price.final;
       else missingCount++;
     }
 
@@ -433,10 +455,10 @@
     }
 
     const totalText = formatMinorToCurrency(sumMinor, region.currency);
-    const label = getShowRegionCode() ? `目标地区预计付款 (${region.short})` : '目标地区预计付款';
+    const label = getShowRegionCode() ? '目标地区预计付款 (' + region.short + ')' : '目标地区预计付款';
 
-    let html = `<div class="sapx-row"><div class="sapx-label">${label}：</div><div class="sapx-value">${totalText}</div></div>`;
-    if (missingCount > 0) html += `<div class="sapx-warn">注意：有 ${missingCount} 项商品无法在目标地区购买（已从合计剔除）</div>`;
+    let html = '<div class="sapx-row"><div class="sapx-label">' + label + '：</div><div class="sapx-value">' + totalText + '</div></div>';
+    if (missingCount > 0) html += '<div class="sapx-warn">注意：有 ' + missingCount + ' 项商品无法在目标地区购买（已从合计剔除）</div>';
     box.innerHTML = html;
   }
 
@@ -450,11 +472,12 @@
   ].join(',');
 
   let scanTimer = null;
+
   function scheduleScan() {
     if (scanTimer) return;
     scanTimer = setTimeout(() => {
       scanTimer = null;
-      document.querySelectorAll(PRICE_SELECTORS).forEach(el => enhancePriceElement(el));
+      document.querySelectorAll(PRICE_SELECTORS).forEach(el => { enhancePriceElement(el); });
       if (isCartPage()) updateCartSummary();
     }, 450);
   }
@@ -473,4 +496,3 @@
   scheduleScan();
   startObserver();
 })();
-```
