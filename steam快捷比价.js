@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam 额外地区价格显示
 // @namespace    https://github.com/linyaocrush/My-Tampermonkey-script
-// @version      0.3.2
+// @version      0.4.0
 // @description  商店与购物车价格追加；购物车页显示“目标地区预计付款”，统计并剔除区域不可购买项
 // @match        https://store.steampowered.com/*
 // @run-at       document-idle
@@ -10,7 +10,10 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
 // @connect      store.steampowered.com
+// @connect      api.steampowered.com
 // @license MIT
+// @downloadURL https://update.greasyfork.org/scripts/559826/Steam%20%E9%A2%9D%E5%A4%96%E5%9C%B0%E5%8C%BA%E4%BB%B7%E6%A0%BC%E6%98%BE%E7%A4%BA.user.js
+// @updateURL https://update.greasyfork.org/scripts/559826/Steam%20%E9%A2%9D%E5%A4%96%E5%9C%B0%E5%8C%BA%E4%BB%B7%E6%A0%BC%E6%98%BE%E7%A4%BA.meta.js
 // ==/UserScript==
 
 (function () {
@@ -236,37 +239,6 @@
     try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(major); } catch (e) { return String(major.toFixed(fd)) + ' ' + currency; }
   }
 
-  function parseFormattedToMinor(formatted, currency) {
-    if (!formatted) return null;
-    const fd = getCurrencyFractionDigits(currency);
-    let s = String(formatted).replace(/\s+/g, '').replace(/[^\d.,]/g, '');
-    if (!s) return null;
-    if (fd === 0) {
-      const digits = s.replace(/\D/g, '');
-      if (!digits) return null;
-      const n = parseInt(digits, 10);
-      return Number.isFinite(n) ? n : null;
-    }
-    const lastDot = s.lastIndexOf('.');
-    const lastComma = s.lastIndexOf(',');
-    let decSep = null;
-    if (lastDot >= 0 && lastComma >= 0) decSep = lastDot > lastComma ? '.' : ',';
-    else if (lastDot >= 0) { const after = s.length - lastDot - 1; decSep = (after === fd) ? '.' : null; }
-    else if (lastComma >= 0) { const after = s.length - lastComma - 1; decSep = (after === fd) ? ',' : null; }
-    let intPart = s;
-    let fracPart = '';
-    if (decSep) { const parts = s.split(decSep); fracPart = parts.pop() || ''; intPart = parts.join(''); }
-    intPart = intPart.replace(/[.,]/g, '').replace(/\D/g, '');
-    fracPart = fracPart.replace(/\D/g, '');
-    if (!intPart) intPart = '0';
-    if (fracPart.length > fd) fracPart = fracPart.slice(0, fd);
-    while (fracPart.length < fd) fracPart += '0';
-    const i = parseInt(intPart, 10);
-    const f = parseInt(fracPart || '0', 10);
-    if (!Number.isFinite(i) || !Number.isFinite(f)) return null;
-    return i * Math.pow(10, fd) + f;
-  }
-
   const priceCache = new Map();
   const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -294,7 +266,8 @@
   async function getAppPrice(appid, cc, currencyFallback) {
     const url = 'https://store.steampowered.com/api/appdetails?appids=' + appid + '&cc=' + cc + '&filters=price_overview,is_free';
     const text = await requestQueue.enqueue(() => gmGet(url));
-    const block = JSON.parse(text) && JSON.parse(text)[String(appid)];
+    const parsed = JSON.parse(text);
+    const block = parsed && parsed[String(appid)];
     if (!block || !block.success) return null;
     const data = block.data || {};
     if (data.is_free) return normalizePrice({ currency: currencyFallback, final: 0, initial: 0, finalFormatted: 'Free', initialFormatted: 'Free' });
@@ -313,7 +286,8 @@
   async function getPackagePrice(packageid, cc, currencyFallback) {
     const url = 'https://store.steampowered.com/api/packagedetails?packageids=' + packageid + '&cc=' + cc;
     const text = await requestQueue.enqueue(() => gmGet(url));
-    const block = JSON.parse(text) && JSON.parse(text)[String(packageid)];
+    const parsed = JSON.parse(text);
+    const block = parsed && parsed[String(packageid)];
     if (!block || !block.success) return null;
     const p = (block.data && (block.data.price || block.data.price_overview)) || null;
     if (!p) return null;
@@ -328,19 +302,46 @@
   }
 
   async function getBundlePrice(bundleid, cc, currencyFallback) {
-    const url = 'https://store.steampowered.com/bundle/' + bundleid + '/?cc=' + cc + '&l=english';
-    const html = await requestQueue.enqueue(() => gmGet(url));
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const finalEl = doc.querySelector('.discount_final_price') || doc.querySelector('.game_purchase_price');
-    if (!finalEl) return null;
-    const finalFormatted = finalEl.textContent.trim();
+    // 使用 IStoreBrowseService API 获取捆绑包价格，强制指定国区
+    const payload = {
+      ids: [{ bundleid: parseInt(bundleid, 10) }],
+      context: {
+        language: 'schinese',
+        country_code: cc,
+        steam_realm: 1
+      },
+      data_request: {
+        include_all_purchase_options: true
+      }
+    };
+    const url = 'https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=' + encodeURIComponent(JSON.stringify(payload));
+    const text = await requestQueue.enqueue(() => gmGet(url));
+    const parsed = JSON.parse(text);
+    const items = parsed && parsed.response && parsed.response.store_items;
+    if (!items || !items.length) return null;
+
+    const item = items[0];
+    let po = item.best_purchase_option;
+    if (!po && item.purchase_options && item.purchase_options.length > 0) {
+      po = item.purchase_options.find(o => o.final_price_in_cents !== undefined) || item.purchase_options[0];
+    }
+    if (!po) return null;
+
+    if (po.currency_code && po.currency_code !== currencyFallback) {
+      return null;
+    }
+
+    const finalMinor = parseInt(po.final_price_in_cents, 10);
+    const initialMinor = parseInt(po.original_price_in_cents, 10);
+    if (!Number.isFinite(finalMinor)) return null;
+
     return normalizePrice({
-      currency: currencyFallback,
-      final: parseFormattedToMinor(finalFormatted, currencyFallback),
-      initial: parseFormattedToMinor(finalFormatted, currencyFallback),
-      finalFormatted: finalFormatted,
-      initialFormatted: finalFormatted,
-      discountPercent: undefined
+      currency: po.currency_code || currencyFallback,
+      final: finalMinor,
+      initial: Number.isFinite(initialMinor) ? initialMinor : finalMinor,
+      finalFormatted: po.formatted_final_price,
+      initialFormatted: po.formatted_original_price || po.formatted_final_price,
+      discountPercent: po.discount_pct
     });
   }
 
@@ -354,7 +355,12 @@
         if (item.type === 'app') res = await getAppPrice(item.id, cc, region.currency);
         else if (item.type === 'package') res = await getPackagePrice(item.id, cc, region.currency);
         else if (item.type === 'bundle') res = await getBundlePrice(item.id, cc, region.currency);
-        if (res && res.ok) { cacheSet(key, res); return res; }
+        if (res && res.ok) {
+          if (item.type === 'bundle' || !res.currency || res.currency === region.currency) {
+            cacheSet(key, res);
+            return res;
+          }
+        }
       } catch (e) {}
     }
     cacheSet(key, null);
@@ -365,22 +371,24 @@
     if (!scopeEl) return null;
     const holder = scopeEl.closest('[data-ds-appid],[data-ds-packageid],[data-ds-bundleid]');
     if (holder) {
-      const pkg = holder.dataset.dsPackageid && holder.dataset.dsPackageid.split(',')[0];
       const bnd = holder.dataset.dsBundleid;
+      const pkg = holder.dataset.dsPackageid && holder.dataset.dsPackageid.split(',')[0];
       const app = holder.dataset.dsAppid && holder.dataset.dsAppid.split(',')[0];
-      if (pkg) return { type: 'package', id: pkg };
+      // bundle 优先：捆绑包容器常同时带 packageid，必须先判断 bundle
       if (bnd) return { type: 'bundle', id: bnd };
+      if (pkg) return { type: 'package', id: pkg };
       if (app) return { type: 'app', id: app };
     }
     const link = scopeEl.closest('a') || scopeEl.querySelector('a[href*="/app/"],a[href*="/sub/"],a[href*="/bundle/"]');
     if (link) {
       const h = link.getAttribute('href') || '';
-      let m = h.match(/\/app\/(\d+)/); if (m) return { type: 'app', id: m[1] };
+      let m = h.match(/\/bundle\/(\d+)/); if (m) return { type: 'bundle', id: m[1] };
+      m = h.match(/\/app\/(\d+)/); if (m) return { type: 'app', id: m[1] };
       m = h.match(/\/sub\/(\d+)/); if (m) return { type: 'package', id: m[1] };
-      m = h.match(/\/bundle\/(\d+)/); if (m) return { type: 'bundle', id: m[1] };
     }
     const p = location.pathname;
-    let m = p.match(/^\/app\/(\d+)/); if (m) return { type: 'app', id: m[1] };
+    let m = p.match(/^\/bundle\/(\d+)/); if (m) return { type: 'bundle', id: m[1] };
+    m = p.match(/^\/app\/(\d+)/); if (m) return { type: 'app', id: m[1] };
     m = p.match(/^\/sub\/(\d+)/); if (m) return { type: 'package', id: m[1] };
     return null;
   }
