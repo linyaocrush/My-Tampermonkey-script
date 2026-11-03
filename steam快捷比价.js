@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Steam 额外地区价格显示
 // @namespace    https://github.com/linyaocrush/My-Tampermonkey-script
-// @version      0.4.0
-// @description  商店与购物车价格追加；购物车页显示“目标地区预计付款”，统计并剔除区域不可购买项
+// @version      0.5.1
+// @description  商店与购物车价格追加；购物车页显示“目标地区预计付款”，统计并剔除区域不可购买项；支持愿望单（含未打折商品）
 // @match        https://store.steampowered.com/*
 // @run-at       document-idle
 // @grant        GM_getValue
@@ -70,6 +70,7 @@
   function getTargetRegion() { const id = GM_getValue(STORAGE_KEY_REGION_ID, 'CNY'); return getRegionById(id) || getRegionById('CNY'); }
   function getShowRegionCode() { return Boolean(GM_getValue(STORAGE_KEY_SHOW_CODE, true)); }
   function isCartPage() { return location.pathname === '/cart/' || location.pathname.startsWith('/cart'); }
+  function isWishlistPage() { return /\/wishlist/i.test(location.pathname); }
 
   const STYLE_ID = 'sapx-style';
   const EXTRA_CLASS = 'sapx-extra-price';
@@ -84,8 +85,9 @@
       const style = document.createElement('style');
       style.id = STYLE_ID;
       style.textContent =
-        '.sapx-extra-price{margin-left:6px;font-size:0.9em;opacity:1;white-space:nowrap;pointer-events:none;color:#67c1f5;display:inline-block;font-weight:normal}' +
-        'strike .sapx-extra-price,.discount_original_price .sapx-extra-price,.StoreOriginalPrice .sapx-extra-price{opacity:0.65;font-size:0.85em;color:#acb2b8;text-decoration:line-through}' +
+        '.sapx-extra-price{margin-left:6px;font-size:0.9em;opacity:1;white-space:nowrap;pointer-events:none;color:#67c1f5;display:inline-block;font-weight:normal;text-decoration:none!important}' +
+        '.sapx-extra-price::before,.sapx-extra-price::after{content:none!important;display:none!important}' +
+        'strike .sapx-extra-price,.discount_original_price .sapx-extra-price,.StoreOriginalPrice .sapx-extra-price{opacity:0.65;font-size:0.85em;color:#acb2b8;text-decoration:none!important}' +
         '#sapx-cart-summary{margin-top:8px;margin-bottom:8px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.1);color:#c6d4df;font-size:12px;line-height:1.4}' +
         '#sapx-cart-summary .sapx-row{display:flex;justify-content:space-between;gap:8px;align-items:center}' +
         '#sapx-cart-summary .sapx-label{font-size:11px;opacity:0.8;color:#acb2b8}' +
@@ -284,25 +286,59 @@
   }
 
   async function getPackagePrice(packageid, cc, currencyFallback) {
-    const url = 'https://store.steampowered.com/api/packagedetails?packageids=' + packageid + '&cc=' + cc;
-    const text = await requestQueue.enqueue(() => gmGet(url));
-    const parsed = JSON.parse(text);
-    const block = parsed && parsed[String(packageid)];
-    if (!block || !block.success) return null;
-    const p = (block.data && (block.data.price || block.data.price_overview)) || null;
-    if (!p) return null;
-    return normalizePrice({
-      currency: p.currency,
-      final: p.final,
-      initial: p.initial,
-      finalFormatted: p.final_formatted,
-      initialFormatted: p.initial_formatted,
-      discountPercent: p.discount_percent
-    });
+    try {
+      const payload = {
+        ids: [{ packageid: parseInt(packageid, 10) }],
+        context: { language: 'schinese', country_code: cc, steam_realm: 1 },
+        data_request: { include_all_purchase_options: true }
+      };
+      const url = 'https://api.steampowered.com/IStoreBrowseService/GetItems/v1/?input_json=' + encodeURIComponent(JSON.stringify(payload));
+      const text = await requestQueue.enqueue(() => gmGet(url));
+      const parsed = JSON.parse(text);
+      const items = parsed && parsed.response && parsed.response.store_items;
+      if (items && items.length > 0) {
+        const item = items[0];
+        let po = item.best_purchase_option;
+        if (!po && item.purchase_options && item.purchase_options.length > 0) {
+          po = item.purchase_options.find(o => o.final_price_in_cents !== undefined) || item.purchase_options[0];
+        }
+        if (po && po.final_price_in_cents !== undefined) {
+          if (!po.currency_code || po.currency_code === currencyFallback) {
+            return normalizePrice({
+              currency: po.currency_code || currencyFallback,
+              final: parseInt(po.final_price_in_cents, 10),
+              initial: po.original_price_in_cents ? parseInt(po.original_price_in_cents, 10) : parseInt(po.final_price_in_cents, 10),
+              finalFormatted: po.formatted_final_price,
+              initialFormatted: po.formatted_original_price || po.formatted_final_price,
+              discountPercent: po.discount_pct
+            });
+          }
+        }
+      }
+    } catch (e) {}
+
+    try {
+      const url = 'https://store.steampowered.com/api/packagedetails?packageids=' + packageid + '&cc=' + cc;
+      const text = await requestQueue.enqueue(() => gmGet(url));
+      const parsed = JSON.parse(text);
+      const block = parsed && parsed[String(packageid)];
+      if (!block || !block.success) return null;
+      const p = (block.data && (block.data.price || block.data.price_overview)) || null;
+      if (!p) return null;
+      return normalizePrice({
+        currency: p.currency,
+        final: p.final,
+        initial: p.initial,
+        finalFormatted: p.final_formatted,
+        initialFormatted: p.initial_formatted,
+        discountPercent: p.discount_percent
+      });
+    } catch (e) {
+      return null;
+    }
   }
 
   async function getBundlePrice(bundleid, cc, currencyFallback) {
-    // 使用 IStoreBrowseService API 获取捆绑包价格，强制指定国区
     const payload = {
       ids: [{ bundleid: parseInt(bundleid, 10) }],
       context: {
@@ -369,32 +405,133 @@
 
   function inferItemFromScope(scopeEl) {
     if (!scopeEl) return null;
+
+    // 1) 愿望单 React 条目
+    const draggable = scopeEl.closest('[data-rfd-draggable-id^="WishlistItem-"]');
+    if (draggable) {
+      const m = (draggable.getAttribute('data-rfd-draggable-id') || '').match(/^WishlistItem-(\d+)-/);
+      if (m) return { type: 'app', id: m[1] };
+    }
+
+    // 2) 商店页购买区块隔离
+    const targetGame = scopeEl.closest('.game_area_purchase_game, .game_area_purchase_game_wrapper');
+    if (targetGame) {
+      // 【关键修复】绝对优先找 Bundle（通过按钮链接、onclick 事件或 dataset）
+      const bundleEls = targetGame.querySelectorAll('[href*="/bundle/"], [onclick*="ShowBundleInfo"], [onclick*="addBundleToCart"], [data-ds-bundleid]');
+      for (const el of bundleEls) {
+        const attr = el.getAttribute('href') || el.getAttribute('onclick') || el.getAttribute('data-ds-bundleid') || '';
+        const m = attr.match(/\/bundle\/(\d+)/) || attr.match(/ShowBundleInfo\(['"]?(\d+)['"]?\)/) || attr.match(/addBundleToCart\(['"]?(\d+)['"]?/) || attr.match(/^(\d+)/);
+        if (m) return { type: 'bundle', id: m[1] };
+      }
+
+      // 兼容某些老样式下 data-ds-bundleid 在父级容器的情况
+      const closestBnd = scopeEl.closest('[data-ds-bundleid]');
+      if (closestBnd && closestBnd.dataset.dsBundleid) {
+        return { type: 'bundle', id: closestBnd.dataset.dsBundleid.split(',')[0] };
+      }
+
+      // 接下来才是 Package (隐藏表单 input[name="subid"])
+      const subInput = targetGame.querySelector('input[name="subid"]');
+      if (subInput && subInput.value) {
+        return { type: 'package', id: subInput.value };
+      }
+
+      // 查找 Package (data-ds-packageid)
+      const pkgHolder = targetGame.querySelector('[data-ds-packageid]');
+      if (pkgHolder && pkgHolder.dataset.dsPackageid) {
+        return { type: 'package', id: pkgHolder.dataset.dsPackageid.split(',')[0] };
+      }
+
+      // 从 addToCart 按钮提取
+      const addBtn = targetGame.querySelector('a[href*="addToCart"], button[onclick*="addToCart"], a[onclick*="addToCart"]');
+      if (addBtn) {
+        const attr = addBtn.getAttribute('href') || addBtn.getAttribute('onclick') || '';
+        const m = attr.match(/addToCart\((\d+)/) || attr.match(/subid=(\d+)/);
+        if (m) return { type: 'package', id: m[1] };
+      }
+
+      // 查找 App
+      const appHolder = targetGame.querySelector('[data-ds-appid]');
+      if (appHolder && appHolder.dataset.dsAppid) {
+        return { type: 'app', id: appHolder.dataset.dsAppid.split(',')[0] };
+      }
+
+      // 文本兜底 (# 1324561 或 # 87495)
+      const textMatch = targetGame.textContent.match(/#\s*(\d+)/);
+      if (textMatch) {
+        if (/捆绑包|bundle/i.test(targetGame.textContent)) {
+          return { type: 'bundle', id: textMatch[1] };
+        }
+        return { type: 'package', id: textMatch[1] };
+      }
+    }
+
+    // 3) 常规 data 属性
     const holder = scopeEl.closest('[data-ds-appid],[data-ds-packageid],[data-ds-bundleid]');
     if (holder) {
       const bnd = holder.dataset.dsBundleid;
       const pkg = holder.dataset.dsPackageid && holder.dataset.dsPackageid.split(',')[0];
       const app = holder.dataset.dsAppid && holder.dataset.dsAppid.split(',')[0];
-      // bundle 优先：捆绑包容器常同时带 packageid，必须先判断 bundle
       if (bnd) return { type: 'bundle', id: bnd };
       if (pkg) return { type: 'package', id: pkg };
       if (app) return { type: 'app', id: app };
     }
-    const link = scopeEl.closest('a') || scopeEl.querySelector('a[href*="/app/"],a[href*="/sub/"],a[href*="/bundle/"]');
+
+    // 4) data-app-id
+    const appIdHolder = scopeEl.closest('[data-app-id]');
+    if (appIdHolder) {
+      const id = String(appIdHolder.getAttribute('data-app-id')).split(',')[0].trim();
+      if (/^\d+$/.test(id)) return { type: 'app', id };
+    }
+
+    // 5) 向上逐层遍历，找 /app/ 链接
+    let node = scopeEl;
+    while (node && node !== document.body) {
+      if (node.tagName === 'A') {
+        const m = (node.getAttribute('href') || '').match(/\/app\/(\d+)/);
+        if (m) return { type: 'app', id: m[1] };
+      }
+      const link = node.querySelector('a[href*="/app/"]');
+      if (link) {
+        const m = (link.getAttribute('href') || '').match(/\/app\/(\d+)/);
+        if (m) return { type: 'app', id: m[1] };
+      }
+      node = node.parentElement;
+    }
+
+    // 6) 自身或子元素找链接
+    const link = scopeEl.querySelector('a[href*="/app/"],a[href*="/sub/"],a[href*="/bundle/"]');
     if (link) {
       const h = link.getAttribute('href') || '';
       let m = h.match(/\/bundle\/(\d+)/); if (m) return { type: 'bundle', id: m[1] };
       m = h.match(/\/app\/(\d+)/); if (m) return { type: 'app', id: m[1] };
       m = h.match(/\/sub\/(\d+)/); if (m) return { type: 'package', id: m[1] };
     }
+
+    // 7) 当前页面
     const p = location.pathname;
     let m = p.match(/^\/bundle\/(\d+)/); if (m) return { type: 'bundle', id: m[1] };
     m = p.match(/^\/app\/(\d+)/); if (m) return { type: 'app', id: m[1] };
     m = p.match(/^\/sub\/(\d+)/); if (m) return { type: 'package', id: m[1] };
+
     return null;
   }
 
   function isOriginalPriceElement(el) {
-    return el.classList.contains('discount_original_price') || el.classList.contains('StoreOriginalPrice') || el.tagName === 'STRIKE' || !!el.closest('strike');
+    if (el.classList.contains('discount_original_price') ||
+        el.classList.contains('StoreOriginalPrice') ||
+        el.tagName === 'STRIKE' ||
+        !!el.closest('strike')) return true;
+    try {
+      const style = window.getComputedStyle(el);
+      if ((style.textDecorationLine || '').includes('line-through')) return true;
+      const parent = el.parentElement;
+      if (parent) {
+        const ps = window.getComputedStyle(parent);
+        if ((ps.textDecorationLine || '').includes('line-through')) return true;
+      }
+    } catch (e) {}
+    return false;
   }
 
   function upsertExtraInside(priceEl, region, formatted) {
@@ -405,14 +542,16 @@
       span.className = EXTRA_CLASS;
       span.setAttribute(MARK_ATTR, region.id);
       span.textContent = text;
+      span.style.textDecoration = 'none';
       priceEl.appendChild(span);
     } else {
       span.setAttribute(MARK_ATTR, region.id);
       span.textContent = text;
+      span.style.textDecoration = 'none';
     }
   }
 
-  async function enhancePriceElement(priceEl) {
+  async function enhancePriceElement(priceEl, forceType = 'auto') {
     if (!priceEl || priceEl.nodeType !== 1 || priceEl.classList.contains(EXTRA_CLASS)) return;
     const txt = priceEl.textContent.trim();
     if (!txt || /^-\d+%$/.test(txt) || txt.length > 40) return;
@@ -428,8 +567,16 @@
     const price = await getPriceForItem(item, region);
     if (!price) return;
 
-    const wantInitial = isOriginalPriceElement(priceEl);
-    const formatted = wantInitial ? price.initialFormatted : price.finalFormatted;
+    let wantInitial = false;
+    if (forceType === 'initial') {
+      wantInitial = true;
+    } else if (forceType === 'final') {
+      wantInitial = false;
+    } else {
+      wantInitial = isOriginalPriceElement(priceEl);
+    }
+
+    const formatted = wantInitial ? (price.initialFormatted || price.finalFormatted) : price.finalFormatted;
     if (!formatted) return;
 
     upsertExtraInside(priceEl, region, formatted);
@@ -479,6 +626,61 @@
     '.game_area_purchase_game_dropdown_menu_item_text'
   ].join(',');
 
+  function isPriceLeaf(el) {
+    if (!el || el.children.length > 0) return false;
+    if (el.classList.contains(EXTRA_CLASS)) return false;
+    const txt = el.textContent.trim();
+    if (!txt || txt.length > 25) return false;
+    if (/^-\d+%$/.test(txt)) return false;
+    if (/\d{4}年\d+月\d+日/.test(txt)) return false;
+    if (/添加时间|发行日期|评测|好评|差评|用户标签|我的类别|添加到购物车|移除|愿望单|优先级/.test(txt)) return false;
+    if (!/[\d]|Free|免费/i.test(txt)) return false;
+    if (/^\d+$/.test(txt)) return false;
+    return true;
+  }
+
+  function scanWishlistFallback() {
+    document.querySelectorAll('[data-rfd-draggable-id^="WishlistItem-"]').forEach(row => {
+      let priceLeaves = [];
+
+      const linkContainer = row.querySelector('div[role="link"]');
+      if (linkContainer) {
+        priceLeaves = Array.from(linkContainer.querySelectorAll('div')).filter(isPriceLeaf);
+      }
+
+      if (priceLeaves.length === 0) {
+        const seen = new Set();
+        row.querySelectorAll('a[href*="/app/"]').forEach(a => {
+          Array.from(a.querySelectorAll('div')).forEach(el => {
+            if (isPriceLeaf(el) && !seen.has(el)) {
+              seen.add(el);
+              priceLeaves.push(el);
+            }
+          });
+        });
+      }
+
+      if (priceLeaves.length === 0) {
+        const seen = new Set();
+        Array.from(row.querySelectorAll('div')).forEach(el => {
+          if (isPriceLeaf(el) && !seen.has(el)) {
+            seen.add(el);
+            priceLeaves.push(el);
+          }
+        });
+      }
+
+      if (priceLeaves.length === 0) return;
+
+      if (priceLeaves.length >= 2) {
+        enhancePriceElement(priceLeaves[0], 'initial');
+        enhancePriceElement(priceLeaves[priceLeaves.length - 1], 'final');
+      } else if (priceLeaves.length === 1) {
+        enhancePriceElement(priceLeaves[0], 'final');
+      }
+    });
+  }
+
   let scanTimer = null;
 
   function scheduleScan() {
@@ -486,6 +688,7 @@
     scanTimer = setTimeout(() => {
       scanTimer = null;
       document.querySelectorAll(PRICE_SELECTORS).forEach(el => { enhancePriceElement(el); });
+      if (isWishlistPage()) scanWishlistFallback();
       if (isCartPage()) updateCartSummary();
     }, 450);
   }
